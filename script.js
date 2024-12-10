@@ -4,7 +4,7 @@ class FastingTracker {
         this.updateInterval = null;
         this.notificationTimeout = null;
         this.history = JSON.parse(localStorage.getItem('fastingHistory')) || [];
-        this.notificationsEnabled = false;
+        this.isMobileSafari = /iPhone|iPod|iPad/.test(navigator.userAgent);
         
         // DOM elements
         this.timerDisplay = document.getElementById('timer');
@@ -12,13 +12,11 @@ class FastingTracker {
         this.startButton = document.getElementById('startButton');
         this.stopButton = document.getElementById('stopButton');
         this.historyList = document.getElementById('historyList');
-        this.notificationBtn = document.getElementById('notificationBtn');
         this.durationSelect = document.getElementById('fastingDuration');
 
         // Event listeners
         this.startButton.addEventListener('click', () => this.startFasting());
         this.stopButton.addEventListener('click', () => this.stopFasting());
-        this.notificationBtn.addEventListener('click', () => this.requestNotificationPermission());
 
         // Handle visibility change
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
@@ -26,71 +24,75 @@ class FastingTracker {
         // Initialize
         this.loadLastSession();
         this.updateHistoryDisplay();
-        this.checkNotificationPermission();
     }
 
     async requestNotificationPermission() {
+        if (this.isMobileSafari) {
+            return true; // Mobile Safari will use alerts
+        }
+
         if (!('Notification' in window)) {
-            alert('This browser does not support notifications');
-            return;
+            return false;
+        }
+
+        if (Notification.permission === 'granted') {
+            return true;
+        }
+
+        if (Notification.permission === 'denied') {
+            return false;
         }
 
         try {
             const permission = await Notification.requestPermission();
-            if (permission === 'granted') {
-                this.notificationsEnabled = true;
-                this.notificationBtn.textContent = 'Notifications Enabled';
-                this.notificationBtn.classList.add('enabled');
-            }
+            return permission === 'granted';
         } catch (error) {
             console.error('Error requesting notification permission:', error);
-        }
-    }
-
-    checkNotificationPermission() {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            this.notificationsEnabled = true;
-            this.notificationBtn.textContent = 'Notifications Enabled';
-            this.notificationBtn.classList.add('enabled');
+            return false;
         }
     }
 
     scheduleNotification(duration) {
-        if (this.notificationsEnabled && 'Notification' in window) {
-            // Clear any existing notification timeout
-            if (this.notificationTimeout) {
-                clearTimeout(this.notificationTimeout);
-            }
+        if (this.notificationTimeout) {
+            clearTimeout(this.notificationTimeout);
+        }
 
-            // Schedule new notification
-            this.notificationTimeout = setTimeout(() => {
+        this.notificationTimeout = setTimeout(() => {
+            if (this.isMobileSafari) {
+                // Use alert for mobile Safari
+                if (document.visibilityState === 'visible') {
+                    alert('Your fasting period has ended!');
+                } else {
+                    // If app is in background, check when it becomes visible
+                    const checkVisibility = () => {
+                        if (document.visibilityState === 'visible') {
+                            alert('Your fasting period has ended!');
+                            document.removeEventListener('visibilitychange', checkVisibility);
+                        }
+                    };
+                    document.addEventListener('visibilitychange', checkVisibility);
+                }
+            } else if (Notification.permission === 'granted') {
+                // Use desktop notifications
                 new Notification('Fasting Complete!', {
                     body: 'Your fasting period has ended.',
                     icon: '/icon.png'
                 });
-            }, duration * 60 * 60 * 1000); // Convert hours to milliseconds
-        }
-    }
-
-    loadLastSession() {
-        const lastSession = localStorage.getItem('currentFasting');
-        if (lastSession) {
-            const session = JSON.parse(lastSession);
-            if (session.startTime) {
-                this.startTime = new Date(session.startTime);
-                this.startFasting(false);
             }
-        }
+        }, duration * 60 * 60 * 1000); // Convert hours to milliseconds
+
+        // Store the end time in localStorage
+        const endTime = new Date(Date.now() + duration * 60 * 60 * 1000);
+        localStorage.setItem('fastingEndTime', endTime.toISOString());
     }
 
-    handleVisibilityChange() {
-        if (document.visibilityState === 'visible' && this.startTime) {
-            this.updateTimer();
-        }
-    }
-
-    startFasting(isNewSession = true) {
+    async startFasting(isNewSession = true) {
         if (isNewSession) {
+            // Request notification permission when starting a new fast
+            if (!this.isMobileSafari) {
+                await this.requestNotificationPermission();
+            }
+            
             this.startTime = new Date();
             const selectedDuration = parseInt(this.durationSelect.value);
             localStorage.setItem('currentFasting', JSON.stringify({ 
@@ -114,6 +116,45 @@ class FastingTracker {
         this.stopButton.style.display = 'block';
         this.statusDisplay.textContent = 'FASTING';
         this.statusDisplay.style.color = '#4CAF50';
+    }
+
+    loadLastSession() {
+        const lastSession = localStorage.getItem('currentFasting');
+        if (lastSession) {
+            const session = JSON.parse(lastSession);
+            if (session.startTime) {
+                this.startTime = new Date(session.startTime);
+                
+                // Check if we need to show a missed notification
+                const endTimeStr = localStorage.getItem('fastingEndTime');
+                if (endTimeStr) {
+                    const endTime = new Date(endTimeStr);
+                    if (endTime < new Date()) {
+                        // Fasting period ended while away
+                        if (this.isMobileSafari) {
+                            setTimeout(() => alert('Your fasting period ended while you were away!'), 1000);
+                        } else if (Notification.permission === 'granted') {
+                            new Notification('Fasting Complete!', {
+                                body: 'Your fasting period ended while you were away.',
+                                icon: '/icon.png'
+                            });
+                        }
+                    } else {
+                        // Reschedule notification for remaining time
+                        const remainingTime = (endTime - new Date()) / (1000 * 60 * 60);
+                        this.scheduleNotification(remainingTime);
+                    }
+                }
+                
+                this.startFasting(false);
+            }
+        }
+    }
+
+    handleVisibilityChange() {
+        if (document.visibilityState === 'visible' && this.startTime) {
+            this.updateTimer();
+        }
     }
 
     stopFasting() {

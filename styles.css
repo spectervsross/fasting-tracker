@@ -125,12 +125,3 @@ h2 {
     text-align: center;
     text-align-last: center;
 }
-
-.notification {
-    background-color: #2196F3;
-    color: white;
-}
-
-.notification.enabled {
-    background-color: #4CAF50;
-}
