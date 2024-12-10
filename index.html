@@ -29,6 +29,7 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
+                    console.log('Attempting to register service worker...');
                     const registration = await navigator.serviceWorker.register('/service-worker.js');
                     console.log('ServiceWorker registration successful:', registration);
                     
@@ -36,9 +37,21 @@
                     const pushSupported = 'PushManager' in window;
                     console.log('Push supported:', pushSupported);
                     
-                    if (registration.pushManager) {
+                    if (pushSupported) {
+                        console.log('Attempting to subscribe to push notifications...');
                         const subscription = await registration.pushManager.getSubscription();
-                        console.log('Existing push subscription:', subscription);
+                        if (subscription) {
+                            console.log('Existing push subscription:', subscription);
+                        } else {
+                            console.log('No existing subscription, creating a new one...');
+                            const newSubscription = await registration.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: '<Your Public VAPID Key Here>' // Replace with your actual public key
+                            });
+                            console.log('New push subscription created:', newSubscription);
+                        }
+                    } else {
+                        console.log('Push notifications are not supported in this browser.');
                     }
                 } catch (err) {
                     console.error('ServiceWorker registration failed:', err);
