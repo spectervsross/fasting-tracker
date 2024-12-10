@@ -13,10 +13,15 @@ class FastingTracker {
         this.stopButton = document.getElementById('stopButton');
         this.historyList = document.getElementById('historyList');
         this.durationSelect = document.getElementById('fastingDuration');
+        this.debugLog = document.getElementById('debug-log');
+        this.requestPermissionBtn = document.getElementById('request-permission');
+        this.checkStatusBtn = document.getElementById('check-status');
 
         // Event listeners
         this.startButton.addEventListener('click', () => this.startFasting());
         this.stopButton.addEventListener('click', () => this.stopFasting());
+        this.requestPermissionBtn.addEventListener('click', () => this.requestNotificationPermission());
+        this.checkStatusBtn.addEventListener('click', () => this.checkNotificationStatus());
 
         // Handle visibility change
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
@@ -33,22 +38,27 @@ class FastingTracker {
     }
 
     async requestNotificationPermission() {
+        this.logDebug('Requesting notification permission...', 'info');
+        
         try {
             const isPushSupported = OneSignal.isPushNotificationsSupported();
             if (!isPushSupported) {
-                console.log('Push notifications are not supported');
+                this.logDebug('Push notifications are not supported', 'error');
                 return false;
             }
 
             const permission = await OneSignal.getNotificationPermission();
+            this.logDebug(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
+            
             if (permission === 'granted') {
                 return true;
             }
 
             const result = await OneSignal.showNativePrompt();
+            this.logDebug(`Permission result: ${result}`, result === 'granted' ? 'success' : 'error');
             return result;
         } catch (error) {
-            console.error('Error requesting notification permission:', error);
+            this.logDebug(`Error requesting notification permission: ${error.message}`, 'error');
             return false;
         }
     }
@@ -80,7 +90,7 @@ class FastingTracker {
                         }
                     );
                 } catch (error) {
-                    console.error('Error sending notification:', error);
+                    this.logDebug(`Error sending notification: ${error.message}`, 'error');
                 }
             }, timeLeft);
         }
@@ -217,76 +227,138 @@ class FastingTracker {
     }
 
     async initializePushNotifications() {
-        // Check if running on iOS Safari
+        this.logDebug('Initializing push notifications...', 'info');
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-        console.log('Device checks:', {
-            isIOS,
-            isSafari,
-            hasNotification: 'Notification' in window,
-            hasServiceWorker: 'serviceWorker' in navigator,
-            hasPushManager: 'PushManager' in window
-        });
+        this.logDebug(`Environment: ${isIOS ? 'iOS' : 'Not iOS'} / ${isSafari ? 'Safari' : 'Not Safari'}`, 'info');
 
-        // iOS Safari specific handling
         if (isIOS && isSafari) {
-            // Request permission specifically for iOS Safari
+            this.logDebug('iOS Safari detected - checking permissions...', 'info');
+            
             if ('permissions' in navigator) {
                 try {
                     const result = await navigator.permissions.query({ name: 'notifications' });
-                    console.log('Permission status:', result.state);
+                    this.logDebug(`Permission status: ${result.state}`, 'info');
                     
                     if (result.state === 'prompt' || result.state === 'default') {
                         const permission = await Notification.requestPermission();
-                        console.log('iOS Safari permission result:', permission);
+                        this.logDebug(`iOS Safari permission result: ${permission}`, 'info');
                     }
                 } catch (error) {
-                    console.error('Permission query error:', error);
+                    this.logDebug(`Permission query error: ${error.message}`, 'error');
                 }
             } else {
-                // Fallback for older iOS versions
                 const permission = await Notification.requestPermission();
-                console.log('iOS Safari fallback permission result:', permission);
+                this.logDebug(`iOS Safari fallback permission: ${permission}`, 'info');
             }
             return;
         }
 
-        // Continue with regular push notification flow for other browsers
         if (!('Notification' in window)) {
-            console.log('This browser does not support notifications');
+            this.logDebug('Notifications not supported in this browser', 'error');
             return;
         }
 
         try {
             const permission = await Notification.requestPermission();
-            console.log('Permission result:', permission);
+            this.logDebug(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
+            
             if (permission === 'granted') {
-                this.subscribeToPushNotifications();
+                await this.subscribeToPushNotifications();
             }
         } catch (error) {
-            console.error('Error requesting notification permission:', error);
+            this.logDebug(`Error in push initialization: ${error.message}`, 'error');
         }
     }
 
     async subscribeToPushNotifications() {
+        this.logDebug('Attempting to subscribe to push notifications...', 'info');
+
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            console.log('Push notifications not supported');
+            this.logDebug('Push notifications not supported', 'error');
             return;
         }
 
         try {
             const registration = await navigator.serviceWorker.ready;
+            this.logDebug('Service Worker is ready', 'success');
+
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                // Replace with your VAPID public key
                 applicationServerKey: this.urlBase64ToUint8Array('BF7-M2aCUeHmkI94ALQzCKkkAysgLhwdcnOv24wxJn6kUbSrDkyeLsegQfNndj4yuF6hH9Ju4W6N89OYLgQ_dsM')
             });
 
-            // Send subscription to your server
+            this.logDebug('Successfully subscribed to push notifications', 'success');
+            
+            // Send subscription to server
             await this.sendSubscriptionToServer(subscription);
         } catch (error) {
-            console.error('Failed to subscribe to push notifications:', error);
+            this.logDebug(`Failed to subscribe: ${error.message}`, 'error');
+        }
+    }
+
+    async sendSubscriptionToServer(subscription) {
+        try {
+            const response = await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(subscription)
+            });
+
+            if (response.ok) {
+                this.logDebug('Subscription sent to server successfully', 'success');
+            } else {
+                this.logDebug(`Failed to send subscription to server: ${response.status}`, 'error');
+            }
+        } catch (error) {
+            this.logDebug(`Error sending subscription to server: ${error.message}`, 'error');
+        }
+    }
+
+    logDebug(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry ${type}`;
+        logEntry.textContent = `[${timestamp}] ${message}`;
+        
+        if (this.debugLog) {
+            this.debugLog.insertBefore(logEntry, this.debugLog.firstChild);
+        }
+        console.log(`${type.toUpperCase()}: ${message}`);
+    }
+
+    async checkNotificationStatus() {
+        this.logDebug('Checking notification status...', 'info');
+
+        // Device and browser checks
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isStandalone = window.navigator.standalone === true;
+
+        this.logDebug(`Device: ${isIOS ? 'iOS' : 'Not iOS'}`, 'info');
+        this.logDebug(`Browser: ${isSafari ? 'Safari' : 'Not Safari'}`, 'info');
+        this.logDebug(`Standalone Mode: ${isStandalone ? 'Yes' : 'No'}`, 'info');
+        this.logDebug(`Notification API: ${'Notification' in window ? 'Available' : 'Not Available'}`, 'info');
+        this.logDebug(`Service Worker API: ${'serviceWorker' in navigator ? 'Available' : 'Not Available'}`, 'info');
+        this.logDebug(`Push API: ${'PushManager' in window ? 'Available' : 'Not Available'}`, 'info');
+
+        // Permission status
+        if ('Notification' in window) {
+            this.logDebug(`Notification Permission: ${Notification.permission}`, 'info');
+        }
+
+        // Service Worker status
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.getRegistration();
+            this.logDebug(`Service Worker: ${registration ? 'Registered' : 'Not Registered'}`, 'info');
+
+            if (registration && registration.pushManager) {
+                const subscription = await registration.pushManager.getSubscription();
+                this.logDebug(`Push Subscription: ${subscription ? 'Active' : 'Not Active'}`, 'info');
+            }
         }
     }
 
@@ -299,21 +371,6 @@ class FastingTracker {
             outputArray[i] = rawData.charCodeAt(i);
         }
         return outputArray;
-    }
-
-    async sendSubscriptionToServer(subscription) {
-        try {
-            // Replace with your server endpoint
-            await fetch('/api/subscribe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(subscription)
-            });
-        } catch (error) {
-            console.error('Error sending subscription to server:', error);
-        }
     }
 }
 

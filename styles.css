@@ -125,3 +125,64 @@ h2 {
     text-align: center;
     text-align-last: center;
 }
+
+/* Debug Section Styles */
+.debug-section {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #f5f5f5;
+    border-radius: 8px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.debug-section h3 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.debug-log {
+    background: #fff;
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    margin-bottom: 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+}
+
+.debug-log .log-entry {
+    margin-bottom: 0.5rem;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.debug-log .error {
+    color: #dc3545;
+}
+
+.debug-log .success {
+    color: #28a745;
+}
+
+.debug-log .info {
+    color: #17a2b8;
+}
+
+.debug-button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+    cursor: pointer;
+}
+
+.debug-button:hover {
+    background: #0056b3;
+}
