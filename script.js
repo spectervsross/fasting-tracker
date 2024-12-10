@@ -339,9 +339,10 @@ class FastingTracker {
                 console.log('Existing push subscription:', subscription);
             } else {
                 console.log('No existing subscription, creating a new one...');
+                const applicationServerKey = 'BF7-M2aCUeHmkI94ALQzCKkkAysgLhwdcnOv24wxJn6kUbSrDkyeLsegQfNndj4yuF6hH9Ju4W6N89OYLgQ_dsM';
                 const newSubscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: this.urlBase64ToUint8Array('BF7-M2aCUeHmkI94ALQzCKkkAysgLhwdcnOv24wxJn6kUbSrDkyeLsegQfNndj4yuF6hH9Ju4W6N89OYLgQ_dsM') // Replace with your actual public key
+                    applicationServerKey: this.urlBase64ToUint8Array(applicationServerKey)
                 });
                 console.log('New push subscription created:', newSubscription);
                 // Send subscription to server
