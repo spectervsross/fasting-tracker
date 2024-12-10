@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Fasting Tracker">
+    <title>Fasting Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Fasting Tracker</h1>
+        
+        <div class="timer-circle">
+            <div class="timer-icon">⏱</div>
+            <div id="timer">00:00:00</div>
+            <div id="status">NOT FASTING</div>
+        </div>
+
+        <div class="settings">
+            <select id="fastingDuration" class="duration-select">
+                <option value="16">16:8 Fasting (16 hours)</option>
+                <option value="18">18:6 Fasting (18 hours)</option>
+                <option value="20">20:4 Fasting (20 hours)</option>
+                <option value="24">24 Hour Fast</option>
+            </select>
+            <button id="notificationBtn" class="button notification">Enable Notifications</button>
+        </div>
+
+        <button id="startButton" class="button start">Start Fasting</button>
+        <button id="stopButton" class="button stop" style="display: none;">Stop Fasting</button>
+
+        <div class="history-section">
+            <h2>History</h2>
+            <div id="historyList">
+                <p class="no-records">No fasting records yet</p>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
