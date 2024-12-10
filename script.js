@@ -1,5 +1,6 @@
 class FastingTracker {
     constructor() {
+        this.logDebug('FastingTracker initialized', 'info');
         this.startTime = null;
         this.updateInterval = null;
         this.notificationTimeout = null;
@@ -324,8 +325,9 @@ class FastingTracker {
         logEntry.className = `log-entry ${type}`;
         logEntry.textContent = `[${timestamp}] ${message}`;
         
-        if (this.debugLog) {
-            this.debugLog.insertBefore(logEntry, this.debugLog.firstChild);
+        const debugLog = document.getElementById('debug-log');
+        if (debugLog) {
+            debugLog.insertBefore(logEntry, debugLog.firstChild);
         }
         console.log(`${type.toUpperCase()}: ${message}`);
     }
@@ -378,3 +380,4 @@ class FastingTracker {
 document.addEventListener('DOMContentLoaded', () => {
     new FastingTracker();
 });
+
