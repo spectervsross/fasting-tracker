@@ -217,6 +217,42 @@ class FastingTracker {
     }
 
     async initializePushNotifications() {
+        // Check if running on iOS Safari
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        console.log('Device checks:', {
+            isIOS,
+            isSafari,
+            hasNotification: 'Notification' in window,
+            hasServiceWorker: 'serviceWorker' in navigator,
+            hasPushManager: 'PushManager' in window
+        });
+
+        // iOS Safari specific handling
+        if (isIOS && isSafari) {
+            // Request permission specifically for iOS Safari
+            if ('permissions' in navigator) {
+                try {
+                    const result = await navigator.permissions.query({ name: 'notifications' });
+                    console.log('Permission status:', result.state);
+                    
+                    if (result.state === 'prompt' || result.state === 'default') {
+                        const permission = await Notification.requestPermission();
+                        console.log('iOS Safari permission result:', permission);
+                    }
+                } catch (error) {
+                    console.error('Permission query error:', error);
+                }
+            } else {
+                // Fallback for older iOS versions
+                const permission = await Notification.requestPermission();
+                console.log('iOS Safari fallback permission result:', permission);
+            }
+            return;
+        }
+
+        // Continue with regular push notification flow for other browsers
         if (!('Notification' in window)) {
             console.log('This browser does not support notifications');
             return;
@@ -224,6 +260,7 @@ class FastingTracker {
 
         try {
             const permission = await Notification.requestPermission();
+            console.log('Permission result:', permission);
             if (permission === 'granted') {
                 this.subscribeToPushNotifications();
             }
