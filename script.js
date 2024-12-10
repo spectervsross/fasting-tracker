@@ -27,62 +27,63 @@ class FastingTracker {
         
         // Request notification permission on initialization
         this.requestNotificationPermission();
+
+        // Initialize push notifications
+        this.initializePushNotifications();
     }
 
     async requestNotificationPermission() {
-        if (!('Notification' in window)) {
-            return false;
-        }
-
-        if (Notification.permission === 'granted') {
-            return true;
-        }
-
-        if (Notification.permission === 'denied') {
-            return false;
-        }
-
         try {
-            const permission = await Notification.requestPermission();
-            return permission === 'granted';
+            const isPushSupported = OneSignal.isPushNotificationsSupported();
+            if (!isPushSupported) {
+                console.log('Push notifications are not supported');
+                return false;
+            }
+
+            const permission = await OneSignal.getNotificationPermission();
+            if (permission === 'granted') {
+                return true;
+            }
+
+            const result = await OneSignal.showNativePrompt();
+            return result;
         } catch (error) {
             console.error('Error requesting notification permission:', error);
             return false;
         }
     }
 
-    scheduleNotification(duration) {
+    async scheduleNotification(duration) {
         if (this.notificationTimeout) {
             clearTimeout(this.notificationTimeout);
         }
 
-        this.notificationTimeout = setTimeout(() => {
-            if (this.isMobileSafari) {
-                // Use alert for mobile Safari
-                if (document.visibilityState === 'visible') {
-                    alert('Your fasting period has ended!');
-                } else {
-                    // If app is in background, check when it becomes visible
-                    const checkVisibility = () => {
-                        if (document.visibilityState === 'visible') {
-                            alert('Your fasting period has ended!');
-                            document.removeEventListener('visibilitychange', checkVisibility);
-                        }
-                    };
-                    document.addEventListener('visibilitychange', checkVisibility);
-                }
-            } else if (Notification.permission === 'granted') {
-                // Use desktop notifications
-                new Notification('Fasting Complete!', {
-                    body: 'Your fasting period has ended.',
-                    icon: '/icon.png'
-                });
-            }
-        }, duration * 60 * 60 * 1000); // Convert hours to milliseconds
+        const endTime = this.startTime + (duration * 60 * 60 * 1000);
+        const currentTime = Date.now();
+        const timeLeft = endTime - currentTime;
 
-        // Store the end time in localStorage
-        const endTime = new Date(Date.now() + duration * 60 * 60 * 1000);
-        localStorage.setItem('fastingEndTime', endTime.toISOString());
+        if (timeLeft > 0) {
+            this.notificationTimeout = setTimeout(async () => {
+                try {
+                    await OneSignal.sendSelfNotification(
+                        "Fasting Tracker", // Title
+                        "Your fasting period is complete! ", // Message
+                        window.location.href, // URL
+                        "/icon-192.png", // Icon
+                        {
+                            actionButtons: [
+                                {
+                                    text: "View Stats",
+                                    url: window.location.href
+                                }
+                            ]
+                        }
+                    );
+                } catch (error) {
+                    console.error('Error sending notification:', error);
+                }
+            }, timeLeft);
+        }
     }
 
     async startFasting(isNewSession = true) {
@@ -213,6 +214,69 @@ class FastingTracker {
         const hours = Math.floor(duration / (1000 * 60 * 60));
         const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
         return `${hours}h ${minutes}m`;
+    }
+
+    async initializePushNotifications() {
+        if (!('Notification' in window)) {
+            console.log('This browser does not support notifications');
+            return;
+        }
+
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                this.subscribeToPushNotifications();
+            }
+        } catch (error) {
+            console.error('Error requesting notification permission:', error);
+        }
+    }
+
+    async subscribeToPushNotifications() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            console.log('Push notifications not supported');
+            return;
+        }
+
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                // Replace with your VAPID public key
+                applicationServerKey: this.urlBase64ToUint8Array('BF7-M2aCUeHmkI94ALQzCKkkAysgLhwdcnOv24wxJn6kUbSrDkyeLsegQfNndj4yuF6hH9Ju4W6N89OYLgQ_dsM')
+            });
+
+            // Send subscription to your server
+            await this.sendSubscriptionToServer(subscription);
+        } catch (error) {
+            console.error('Failed to subscribe to push notifications:', error);
+        }
+    }
+
+    urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    async sendSubscriptionToServer(subscription) {
+        try {
+            // Replace with your server endpoint
+            await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(subscription)
+            });
+        } catch (error) {
+            console.error('Error sending subscription to server:', error);
+        }
     }
 }
 
