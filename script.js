@@ -42,22 +42,15 @@ class FastingTracker {
         this.logDebug('Requesting notification permission...', 'info');
         
         try {
-            const isPushSupported = OneSignal.isPushNotificationsSupported();
-            if (!isPushSupported) {
-                this.logDebug('Push notifications are not supported', 'error');
+            if (!('Notification' in window)) {
+                this.logDebug('Notifications not supported in this browser', 'error');
                 return false;
             }
 
-            const permission = await OneSignal.getNotificationPermission();
+            const permission = await Notification.requestPermission();
             this.logDebug(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
             
-            if (permission === 'granted') {
-                return true;
-            }
-
-            const result = await OneSignal.showNativePrompt();
-            this.logDebug(`Permission result: ${result}`, result === 'granted' ? 'success' : 'error');
-            return result;
+            return permission === 'granted';
         } catch (error) {
             this.logDebug(`Error requesting notification permission: ${error.message}`, 'error');
             return false;
@@ -74,26 +67,18 @@ class FastingTracker {
         const timeLeft = endTime - currentTime;
 
         if (timeLeft > 0) {
-            this.notificationTimeout = setTimeout(async () => {
-                try {
-                    await OneSignal.sendSelfNotification(
-                        "Fasting Tracker", // Title
-                        "Your fasting period is complete! ", // Message
-                        window.location.href, // URL
-                        "/icon-192.png", // Icon
-                        {
-                            actionButtons: [
-                                {
-                                    text: "View Stats",
-                                    url: window.location.href
-                                }
-                            ]
-                        }
-                    );
-                } catch (error) {
-                    this.logDebug(`Error sending notification: ${error.message}`, 'error');
-                }
+            this.notificationTimeout = setTimeout(() => {
+                this.sendNotification("Fasting Tracker", "Your fasting period is complete!");
             }, timeLeft);
+        }
+    }
+
+    sendNotification(title, message) {
+        if (Notification.permission === 'granted') {
+            new Notification(title, {
+                body: message,
+                icon: '/icon-192.png'
+            });
         }
     }
 
@@ -106,8 +91,8 @@ class FastingTracker {
                 targetDuration: selectedDuration
             }));
 
-            // Schedule notification
-            this.scheduleNotification(selectedDuration);
+            // Schedule notification for 1 minute later
+            this.scheduleNotification(1); // 1분 후 알림 예약
         }
         
         this.updateTimer();
@@ -266,56 +251,10 @@ class FastingTracker {
             this.logDebug(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
             
             if (permission === 'granted') {
-                await this.subscribeToPushNotifications();
+                // Push notifications subscription logic can be added here if needed
             }
         } catch (error) {
             this.logDebug(`Error in push initialization: ${error.message}`, 'error');
-        }
-    }
-
-    async subscribeToPushNotifications() {
-        this.logDebug('Attempting to subscribe to push notifications...', 'info');
-
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            this.logDebug('Push notifications not supported', 'error');
-            return;
-        }
-
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            this.logDebug('Service Worker is ready', 'success');
-
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: this.urlBase64ToUint8Array('BF7-M2aCUeHmkI94ALQzCKkkAysgLhwdcnOv24wxJn6kUbSrDkyeLsegQfNndj4yuF6hH9Ju4W6N89OYLgQ_dsM')
-            });
-
-            this.logDebug('Successfully subscribed to push notifications', 'success');
-            
-            // Send subscription to server
-            await this.sendSubscriptionToServer(subscription);
-        } catch (error) {
-            this.logDebug(`Failed to subscribe: ${error.message}`, 'error');
-        }
-    }
-
-    async sendSubscriptionToServer(subscription) {
-        try {
-            const response = await fetch('/api/subscribe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(subscription)
-            });
-
-            if (response.ok) {
-                this.logDebug('Subscription sent to server successfully', 'success');
-            } else {
-                this.logDebug(`Failed to send subscription to server: ${response.status}`, 'error');
-            }
-        } catch (error) {
-            this.logDebug(`Error sending subscription to server: ${error.message}`, 'error');
         }
     }
 
