@@ -341,7 +341,7 @@ class FastingTracker {
                 console.log('No existing subscription, creating a new one...');
                 const newSubscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: '<Your Public VAPID Key Here>' // Ensure this is set correctly
+                    applicationServerKey: this.urlBase64ToUint8Array('BF7-M2aCUeHmkI94ALQzCKkkAysgLhwdcnOv24wxJn6kUbSrDkyeLsegQfNndj4yuF6hH9Ju4W6N89OYLgQ_dsM') // Replace with your actual public key
                 });
                 console.log('New push subscription created:', newSubscription);
                 // Send subscription to server
