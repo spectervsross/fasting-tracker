@@ -256,6 +256,20 @@ class FastingTracker {
         } catch (error) {
             this.logDebug(`Error in push initialization: ${error.message}`, 'error');
         }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    console.log('Attempting to register service worker...');
+                    const registration = await navigator.serviceWorker.register('/service-worker.js');
+                    console.log('ServiceWorker registration successful:', registration);
+                    // Call the function to subscribe to push notifications here
+                    await this.subscribeToPushNotifications(registration);
+                } catch (err) {
+                    console.error('ServiceWorker registration failed:', err);
+                }
+            });
+        }
     }
 
     logDebug(message, type = 'info') {
@@ -312,6 +326,30 @@ class FastingTracker {
             outputArray[i] = rawData.charCodeAt(i);
         }
         return outputArray;
+    }
+
+    async subscribeToPushNotifications(registration) {
+        const pushSupported = 'PushManager' in window;
+        console.log('Push supported:', pushSupported);
+
+        if (pushSupported) {
+            console.log('Attempting to subscribe to push notifications...');
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+                console.log('Existing push subscription:', subscription);
+            } else {
+                console.log('No existing subscription, creating a new one...');
+                const newSubscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: '<Your Public VAPID Key Here>' // Ensure this is set correctly
+                });
+                console.log('New push subscription created:', newSubscription);
+                // Send subscription to server
+                await this.sendSubscriptionToServer(newSubscription);
+            }
+        } else {
+            console.log('Push notifications are not supported in this browser.');
+        }
     }
 }
 
