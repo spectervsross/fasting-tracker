@@ -24,13 +24,12 @@ class FastingTracker {
         // Initialize
         this.loadLastSession();
         this.updateHistoryDisplay();
+        
+        // Request notification permission on initialization
+        this.requestNotificationPermission();
     }
 
     async requestNotificationPermission() {
-        if (this.isMobileSafari) {
-            return true; // Mobile Safari will use alerts
-        }
-
         if (!('Notification' in window)) {
             return false;
         }
@@ -88,11 +87,6 @@ class FastingTracker {
 
     async startFasting(isNewSession = true) {
         if (isNewSession) {
-            // Request notification permission when starting a new fast
-            if (!this.isMobileSafari) {
-                await this.requestNotificationPermission();
-            }
-            
             this.startTime = new Date();
             const selectedDuration = parseInt(this.durationSelect.value);
             localStorage.setItem('currentFasting', JSON.stringify({ 
