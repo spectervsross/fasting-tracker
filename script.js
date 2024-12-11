@@ -451,9 +451,14 @@ class FastingTracker {
     }
 
     updateRemainingTime() {
-        const selectedDuration = parseInt(this.durationSelect.value); // Get selected duration in hours
-        const endTime = new Date(new Date().getTime() + selectedDuration * 60 * 60 * 1000);
-        const remainingTime = Math.max(0, endTime - new Date());
+        const currentTime = new Date(); 
+        this.logDebug("Current Time:", currentTime);
+        const selectedDuration = parseInt(this.durationSelect.value); 
+        this.logDebug("Selected Duration:", selectedDuration);
+        const endTime = new Date(currentTime.getTime() + selectedDuration * 60 * 60 * 1000);
+        this.logDebug("End Time:", endTime);
+        const remainingTime = Math.max(0, endTime - currentTime);
+        this.logDebug("Remaining Time (ms):", remainingTime);
         const remainingHours = Math.floor(remainingTime / (1000 * 60 * 60));
         const remainingMinutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
 
