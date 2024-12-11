@@ -200,5 +200,6 @@ h2 {
     font-size: 12px;
     border-radius: 4px;
     margin-top: 10px;
-    white-space: pre;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
