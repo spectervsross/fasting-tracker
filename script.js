@@ -452,13 +452,13 @@ class FastingTracker {
 
     updateRemainingTime() {
         const currentTime = new Date(); 
-        this.logDebug("Current Time:", currentTime);
+        console.log("Current Time:", currentTime.toISOString());
         const selectedDuration = parseInt(this.durationSelect.value); 
-        this.logDebug("Selected Duration:", selectedDuration);
+        console.log("Selected Duration:", selectedDuration);
         const endTime = new Date(currentTime.getTime() + selectedDuration * 60 * 60 * 1000);
-        this.logDebug("End Time:", endTime);
+        console.log("End Time:", endTime.toISOString());
         const remainingTime = Math.max(0, endTime - currentTime);
-        this.logDebug("Remaining Time (ms):", remainingTime);
+        console.log("Remaining Time (ms):", remainingTime);
         const remainingHours = Math.floor(remainingTime / (1000 * 60 * 60));
         const remainingMinutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
 
