@@ -118,6 +118,7 @@ class FastingTracker {
     }
 
     async startFasting(isNewSession = true) {
+        console.log('Start Fasting button clicked'); // Debug log
         if (isNewSession) {
             this.startTime = Date.now();
             const selectedDuration = parseInt(this.durationSelect.value);
