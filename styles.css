@@ -155,12 +155,14 @@ h2 {
     font-size: 0.9rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: relative;
+    text-align: left;
 }
 
-.debug-log .log-entry {
+.log-entry {
     margin-bottom: 0.5rem;
     padding: 0.25rem 0;
     border-bottom: 1px solid #eee;
+    text-align: left;
 }
 
 .debug-log .error {
