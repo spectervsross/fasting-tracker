@@ -78,7 +78,7 @@ class FastingTracker {
 
     async requestNotificationPermission() {
         this.logDebug('Requesting notification permission...', 'info');
-        
+
         try {
             if (!('Notification' in window)) {
                 this.logDebug('Notifications not supported in this browser', 'error');
@@ -87,7 +87,15 @@ class FastingTracker {
 
             const permission = await Notification.requestPermission();
             this.logDebug(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
-            
+
+            if (permission === 'granted') {
+                this.logDebug('Notification permission granted', 'success');
+            } else if (permission === 'denied') {
+                this.logDebug('Notification permission denied', 'warn');
+            } else {
+                this.logDebug('Notification permission dismissed', 'info');
+            }
+
             return permission === 'granted';
         } catch (error) {
             this.logDebug(`Error requesting notification permission: ${error.message}`, 'error');
@@ -375,6 +383,7 @@ class FastingTracker {
         const debugLog = document.getElementById('debug-log');
         if (debugLog) {
             debugLog.insertBefore(logEntry, debugLog.firstChild);
+            debugLog.scrollTop = debugLog.scrollHeight; // Auto-scroll to the latest log
         }
         console.log(`${type.toUpperCase()}: ${message}`);
     }
