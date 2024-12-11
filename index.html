@@ -33,6 +33,10 @@
                     const registration = await navigator.serviceWorker.register('/service-worker.js');
                     console.log('ServiceWorker registration successful:', registration);
                     
+                    // Wait for the service worker to be ready
+                    await navigator.serviceWorker.ready;
+                    console.log('Service worker is now ready and active');
+                    
                     // Check if push is supported
                     const pushSupported = 'PushManager' in window;
                     console.log('Push supported:', pushSupported);
