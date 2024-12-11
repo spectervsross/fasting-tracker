@@ -97,7 +97,7 @@ class FastingTracker {
             clearTimeout(this.notificationTimeout);
         }
 
-        const endTime = this.startTime + (duration * 60 * 60 * 1000);
+        const endTime = this.startTime.getTime() + (duration * 60 * 60 * 1000);
         const currentTime = Date.now();
         const timeLeft = endTime - currentTime;
 
@@ -120,11 +120,11 @@ class FastingTracker {
     async startFasting(isNewSession = true) {
         console.log('Start Fasting button clicked'); // Debug log
         if (isNewSession) {
-            this.startTime = Date.now();
+            this.startTime = new Date(); // Set startTime as a Date object
             const selectedDuration = parseInt(this.durationSelect.value);
             localStorage.setItem('currentFasting', JSON.stringify({ 
                 startTime: this.startTime,
-                targetDuration: selectedDuration
+                duration: selectedDuration
             }));
 
             // Schedule notification for 1 minute later
