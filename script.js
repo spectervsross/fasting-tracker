@@ -35,7 +35,7 @@ class FastingTracker {
         this.requestNotificationPermission();
 
         // Initialize push notifications
-        this.initializePushNotifications();
+        // this.initializePushNotifications();
         
         // Updated Service Worker Registration and Push Notification Subscription
         if ('serviceWorker' in navigator) {
@@ -142,6 +142,59 @@ class FastingTracker {
         this.stopButton.style.display = 'block';
         this.statusDisplay.textContent = 'FASTING';
         this.statusDisplay.style.color = '#4CAF50';
+
+        try {
+            // Check for push notification support
+            if ('Notification' in window && 'serviceWorker' in navigator) {
+                console.log('Requesting notification permission...');
+                const permission = await Notification.requestPermission();
+                console.log('Notification permission status:', permission);
+                
+                if (permission === 'granted') {
+                    const registration = await navigator.serviceWorker.ready;
+                    let subscription = await registration.pushManager.getSubscription();
+                    
+                    if (!subscription) {
+                        try {
+                            console.log('Creating new push subscription...');
+                            subscription = await registration.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: this.urlBase64ToUint8Array('BEOah2sU6PcXuOKlT-GdtAi3krLrU_gOjUO1WCDVG1c7EYviDJq-K5vL0RrQpeHvRzS68lx6LJ9j74SWGt6TjUo')
+                            });
+                            console.log('New push subscription created:', subscription.toJSON());
+                            
+                            // Show success message
+                            new Notification('Push Notifications Enabled', {
+                                body: 'You will receive notifications about your fasting progress',
+                                icon: '/icon-192.png'
+                            });
+                        } catch (subscribeError) {
+                            console.log('Push subscription failed:', {
+                                name: subscribeError.name,
+                                message: subscribeError.message,
+                                browserSupport: {
+                                    pushManager: 'PushManager' in window,
+                                    notification: 'Notification' in window,
+                                    serviceWorker: 'serviceWorker' in navigator
+                                }
+                            });
+                        }
+                    } else {
+                        console.log('Using existing push subscription');
+                    }
+                }
+            }
+            
+            // Show fasting started notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Fasting Started', {
+                    body: 'Your fasting timer has started. Stay strong!',
+                    icon: '/icon-192.png'
+                });
+            }
+        } catch (error) {
+            console.error('Error in notification setup:', error);
+        }
     }
 
     loadLastSession() {
@@ -398,4 +451,3 @@ class FastingTracker {
 document.addEventListener('DOMContentLoaded', () => {
     new FastingTracker();
 });
-
