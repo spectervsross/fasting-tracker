@@ -133,6 +133,8 @@ class FastingTracker {
             // Schedule notification for 1 minute later
             this.scheduleNotification(1/60); // 1 minute in hours
             
+            this.updateRemainingTime();
+            
             this.updateTimer();
             
             this.updateInterval = setInterval(() => {
