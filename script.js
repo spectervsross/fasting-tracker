@@ -36,6 +36,41 @@ class FastingTracker {
 
         // Initialize push notifications
         this.initializePushNotifications();
+        
+        // Updated Service Worker Registration and Push Notification Subscription
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    console.log('Attempting to register service worker...');
+                    const registration = await navigator.serviceWorker.register('/service-worker.js');
+                    console.log('ServiceWorker registration successful:', registration);
+
+                    // Check if push is supported
+                    const pushSupported = 'PushManager' in window;
+                    console.log('Push supported:', pushSupported);
+
+                    if (pushSupported) {
+                        console.log('Attempting to subscribe to push notifications...');
+                        const subscription = await registration.pushManager.getSubscription();
+                        if (subscription) {
+                            console.log('Existing push subscription:', subscription);
+                        } else {
+                            console.log('No existing subscription, creating a new one...');
+                            const applicationServerKey = this.urlBase64ToUint8Array('BEOah2sU6PcXuOKlT-GdtAi3krLrU_gOjUO1WCDVG1c7EYviDJq-K5vL0RrQpeHvRzS68lx6LJ9j74SWGt6TjUo');
+                            const newSubscription = await registration.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: applicationServerKey
+                            });
+                            console.log('New push subscription created:', newSubscription);
+                        }
+                    } else {
+                        console.log('Push notifications are not supported in this browser.');
+                    }
+                } catch (err) {
+                    console.error('ServiceWorker registration failed:', err);
+                }
+            });
+        }
     }
 
     async requestNotificationPermission() {
@@ -339,7 +374,7 @@ class FastingTracker {
                 console.log('Existing push subscription:', subscription);
             } else {
                 console.log('No existing subscription, creating a new one...');
-                const applicationServerKey = 'BF7-M2aCUeHmkI94ALQzCKkkAysgLhwdcnOv24wxJn6kUbSrDkyeLsegQfNndj4yuF6hH9Ju4W6N89OYLgQ_dsM';
+                const applicationServerKey = 'BEOah2sU6PcXuOKlT-GdtAi3krLrU_gOjUO1WCDVG1c7EYviDJq-K5vL0RrQpeHvRzS68lx6LJ9j74SWGt6TjUo';
                 const newSubscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: this.urlBase64ToUint8Array(applicationServerKey)
