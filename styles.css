@@ -189,3 +189,16 @@ h2 {
 .debug-button:hover {
     background: #0056b3;
 }
+
+#logContent {
+    max-height: 300px;
+    overflow-y: auto;
+    background: #1e1e1e;
+    color: #fff;
+    font-family: monospace;
+    padding: 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    margin-top: 10px;
+    white-space: pre;
+}

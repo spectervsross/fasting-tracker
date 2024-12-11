@@ -487,3 +487,13 @@ class FastingTracker {
 document.addEventListener('DOMContentLoaded', () => {
     new FastingTracker();
 });
+
+function displayLog(message) {
+    const logContent = document.getElementById('logContent');
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const displayMessage = `[${timestamp}] ${message}\n`; // Append a newline for raw display
+    
+    logContent.textContent += displayMessage; // Directly append to textContent
+    logContent.scrollTop = logContent.scrollHeight; // Auto-scroll to the latest log
+}
