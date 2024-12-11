@@ -86,17 +86,23 @@ class FastingTracker {
             }
 
             const permission = await Notification.requestPermission();
+            
+            // Log the permission status after the request
             this.logDebug(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
 
-            if (permission === 'granted') {
+            // Check the permission status directly
+            const currentPermission = Notification.permission;
+            this.logDebug(`Current Notification permission status: ${currentPermission}`, currentPermission === 'granted' ? 'success' : 'error');
+
+            if (currentPermission === 'granted') {
                 this.logDebug('Notification permission granted', 'success');
-            } else if (permission === 'denied') {
+            } else if (currentPermission === 'denied') {
                 this.logDebug('Notification permission denied', 'warn');
             } else {
                 this.logDebug('Notification permission dismissed', 'info');
             }
 
-            return permission === 'granted';
+            return currentPermission === 'granted';
         } catch (error) {
             this.logDebug(`Error requesting notification permission: ${error.message}`, 'error');
             return false;
