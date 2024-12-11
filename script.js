@@ -59,7 +59,7 @@ class FastingTracker {
                             const applicationServerKey = this.urlBase64ToUint8Array('BEOah2sU6PcXuOKlT-GdtAi3krLrU_gOjUO1WCDVG1c7EYviDJq-K5vL0RrQpeHvRzS68lx6LJ9j74SWGt6TjUo');
                             const newSubscription = await registration.pushManager.subscribe({
                                 userVisibleOnly: true,
-                                applicationServerKey: applicationServerKey
+                                applicationServerKey: applicationServerKey.buffer
                             });
                             console.log('New push subscription created:', newSubscription);
                         }
