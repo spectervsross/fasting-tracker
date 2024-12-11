@@ -186,15 +186,16 @@
             let displayMessage = message;
             
             if (typeof message === 'object') {
-                displayMessage = JSON.stringify(message, null, 2);
+                try {
+                    displayMessage = JSON.stringify(message, null, 2);
+                } catch (e) {
+                    displayMessage = message.toString();
+                }
             }
             
             entry.textContent = `[${timestamp}] ${displayMessage}`;
             logContent.appendChild(entry);
             logContent.scrollTop = logContent.scrollHeight;
-            
-            // Also log to console
-            console[type](message);
         }
 
         function clearLogs() {
@@ -203,27 +204,27 @@
 
         // Override console methods
         const originalConsole = {
-            log: console.log,
-            error: console.error,
-            warn: console.warn,
-            info: console.info
+            log: console.log.bind(console),
+            error: console.error.bind(console),
+            warn: console.warn.bind(console),
+            info: console.info.bind(console)
         };
 
-        console.log = function() {
-            displayLog(arguments[0], 'info');
-            originalConsole.log.apply(console, arguments);
+        console.log = function(...args) {
+            displayLog(args[0], 'info');
+            originalConsole.log.apply(null, args);
         };
-        console.error = function() {
-            displayLog(arguments[0], 'error');
-            originalConsole.error.apply(console, arguments);
+        console.error = function(...args) {
+            displayLog(args[0], 'error');
+            originalConsole.error.apply(null, args);
         };
-        console.warn = function() {
-            displayLog(arguments[0], 'warn');
-            originalConsole.warn.apply(console, arguments);
+        console.warn = function(...args) {
+            displayLog(args[0], 'warn');
+            originalConsole.warn.apply(null, args);
         };
-        console.info = function() {
-            displayLog(arguments[0], 'info');
-            originalConsole.info.apply(console, arguments);
+        console.info = function(...args) {
+            displayLog(args[0], 'info');
+            originalConsole.info.apply(null, args);
         };
     </script>
     <link rel="stylesheet" href="styles.css">
