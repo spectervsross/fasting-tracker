@@ -20,38 +20,51 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     
     <style>
-        #logContainer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            max-height: 200px;
+        #logSection {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #logContent {
+            max-height: 300px;
             overflow-y: auto;
-            background: rgba(0, 0, 0, 0.8);
+            background: #1e1e1e;
             color: #fff;
             font-family: monospace;
             padding: 10px;
             font-size: 12px;
-            z-index: 1000;
-        }
-        #logContainer.minimized {
-            max-height: 30px;
+            border-radius: 4px;
+            margin-top: 10px;
         }
         #logHeader {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 5px;
-            cursor: pointer;
+            margin-bottom: 10px;
         }
         .log-entry {
             margin: 2px 0;
             padding: 2px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         .log-error { color: #ff6b6b; }
         .log-warn { color: #ffd93d; }
         .log-info { color: #4ecdc4; }
+        #clearLogsBtn {
+            background: #4a4a4a;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #clearLogsBtn:hover {
+            background: #666;
+        }
     </style>
     
     <script>
@@ -188,13 +201,6 @@
             document.getElementById('logContent').innerHTML = '';
         }
 
-        // Toggle log container
-        document.getElementById('logHeader').addEventListener('click', function(e) {
-            if (e.target.tagName !== 'BUTTON') {
-                document.getElementById('logContainer').classList.toggle('minimized');
-            }
-        });
-
         // Override console methods
         const originalConsole = {
             log: console.log,
@@ -251,11 +257,11 @@
             </div>
         </div>
 
-        <!-- Debug Log Section -->
-        <div id="logContainer">
+        <!-- Log Section -->
+        <div id="logSection">
             <div id="logHeader">
-                <span>Push Notification Logs</span>
-                <button onclick="clearLogs()" style="margin-right: 10px;">Clear</button>
+                <h2>System Logs</h2>
+                <button id="clearLogsBtn" onclick="clearLogs()">Clear Logs</button>
             </div>
             <div id="logContent"></div>
         </div>
