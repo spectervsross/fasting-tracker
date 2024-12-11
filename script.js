@@ -17,12 +17,15 @@ class FastingTracker {
         this.debugLog = document.getElementById('debug-log');
         this.requestPermissionBtn = document.getElementById('request-permission');
         this.checkStatusBtn = document.getElementById('check-status');
+        this.remainingTimeDiv = document.getElementById('remainingTime');
+        this.gmtTimeDiv = document.getElementById('gmtTime');
 
         // Event listeners
         this.startButton.addEventListener('click', () => this.startFasting());
         this.stopButton.addEventListener('click', () => this.stopFasting());
         this.requestPermissionBtn.addEventListener('click', () => this.requestNotificationPermission());
         this.checkStatusBtn.addEventListener('click', () => this.checkNotificationStatus());
+        this.durationSelect.addEventListener('change', () => this.updateRemainingTime());
 
         // Handle visibility change
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
@@ -445,6 +448,17 @@ class FastingTracker {
         } else {
             console.log('Push notifications are not supported in this browser.');
         }
+    }
+
+    updateRemainingTime() {
+        const selectedDuration = parseInt(this.durationSelect.value); // Get selected duration in hours
+        const endTime = new Date(new Date().getTime() + selectedDuration * 60 * 60 * 1000);
+        const remainingTime = Math.max(0, endTime - new Date());
+        const remainingHours = Math.floor(remainingTime / (1000 * 60 * 60));
+        const remainingMinutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+
+        this.remainingTimeDiv.textContent = `남은 시간: ${remainingHours}시간 ${remainingMinutes}분`;
+        this.gmtTimeDiv.textContent = `${endTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' })}에 단식이 끝나요!`;
     }
 }
 
