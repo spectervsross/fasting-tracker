@@ -385,13 +385,12 @@ class FastingTracker {
         const logEntry = document.createElement('div');
         logEntry.className = `log-entry ${type}`;
         logEntry.textContent = `[${timestamp}] ${message}`;
-        
+
         const debugLog = document.getElementById('debug-log');
         if (debugLog) {
-            debugLog.insertBefore(logEntry, debugLog.firstChild);
+            debugLog.appendChild(logEntry); // Append to the end to keep all entries
             debugLog.scrollTop = debugLog.scrollHeight; // Auto-scroll to the latest log
         }
-        console.log(`${type.toUpperCase()}: ${message}`);
     }
 
     async checkNotificationStatus() {
