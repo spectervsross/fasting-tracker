@@ -19,6 +19,41 @@
     <meta name="apple-mobile-web-app-title" content="Fasting Tracker">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     
+    <style>
+        #logContainer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            font-family: monospace;
+            padding: 10px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        #logContainer.minimized {
+            max-height: 30px;
+        }
+        #logHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .log-error { color: #ff6b6b; }
+        .log-warn { color: #ffd93d; }
+        .log-info { color: #4ecdc4; }
+    </style>
+    
     <script>
         // Check if running as standalone PWA
         if (window.navigator.standalone === true) {
@@ -127,6 +162,63 @@
             }
             return outputArray;
         }
+        
+        // Custom logging function
+        function displayLog(message, type = 'info') {
+            const logContent = document.getElementById('logContent');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            let displayMessage = message;
+            
+            if (typeof message === 'object') {
+                displayMessage = JSON.stringify(message, null, 2);
+            }
+            
+            entry.textContent = `[${timestamp}] ${displayMessage}`;
+            logContent.appendChild(entry);
+            logContent.scrollTop = logContent.scrollHeight;
+            
+            // Also log to console
+            console[type](message);
+        }
+
+        function clearLogs() {
+            document.getElementById('logContent').innerHTML = '';
+        }
+
+        // Toggle log container
+        document.getElementById('logHeader').addEventListener('click', function(e) {
+            if (e.target.tagName !== 'BUTTON') {
+                document.getElementById('logContainer').classList.toggle('minimized');
+            }
+        });
+
+        // Override console methods
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
+        };
+
+        console.log = function() {
+            displayLog(arguments[0], 'info');
+            originalConsole.log.apply(console, arguments);
+        };
+        console.error = function() {
+            displayLog(arguments[0], 'error');
+            originalConsole.error.apply(console, arguments);
+        };
+        console.warn = function() {
+            displayLog(arguments[0], 'warn');
+            originalConsole.warn.apply(console, arguments);
+        };
+        console.info = function() {
+            displayLog(arguments[0], 'info');
+            originalConsole.info.apply(console, arguments);
+        };
     </script>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -160,7 +252,13 @@
         </div>
 
         <!-- Debug Log Section -->
-        <div id="debug-log" class="debug-log"></div>
+        <div id="logContainer">
+            <div id="logHeader">
+                <span>Push Notification Logs</span>
+                <button onclick="clearLogs()" style="margin-right: 10px;">Clear</button>
+            </div>
+            <div id="logContent"></div>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>
