@@ -63,9 +63,10 @@ h1 {
     border-radius: 25px;
     font-size: 16px;
     font-weight: 600;
-    margin: 10px 0;
+    margin: 10px auto;
     cursor: pointer;
     transition: transform 0.1s;
+    display: block;
 }
 
 .button:active {
