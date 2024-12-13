@@ -5,7 +5,8 @@ class FastingTracker {
         this.updateInterval = null;
         this.notificationTimeout = null;
         this.history = JSON.parse(localStorage.getItem('fastingHistory')) || [];
-        this.isMobileSafari = /iPhone|iPod|iPad/.test(navigator.userAgent);
+        this.isMobileSafari = /iPhone|iPod|iPad/.test(navigator.userAgent) && !window.MSStream;
+        this.isPWA = window.navigator.standalone === true;
         
         // DOM elements
         this.timerDisplay = document.getElementById('timer');
@@ -82,10 +83,44 @@ class FastingTracker {
         } else {
             console.log('Not running as standalone. Prompt user to install.');
         }
+
+        // Initialize notification support check
+        this.checkNotificationSupport();
+    }
+
+    checkNotificationSupport() {
+        if (this.isMobileSafari) {
+            if (!this.isPWA) {
+                console.log('Running in iOS Safari browser - notifications not supported');
+                this.showInstallInstructions();
+            } else {
+                console.log('Running as PWA on iOS - notifications supported');
+            }
+        }
+    }
+
+    showInstallInstructions() {
+        const message = document.createElement('div');
+        message.className = 'install-instructions';
+        message.innerHTML = `
+            <div style="background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                <strong>알림을 받으려면 앱을 설치하세요!</strong><br>
+                1. Safari 공유 버튼을 탭하세요<br>
+                2. "홈 화면에 추가"를 선택하세요<br>
+                3. 설치된 앱을 실행하세요
+            </div>
+        `;
+        document.querySelector('.container').insertBefore(message, document.querySelector('.timer-circle'));
     }
 
     async requestNotificationPermission() {
         this.logDebug('Requesting notification permission...', 'info');
+
+        // iOS Safari에서 PWA로 실행 중이 아닌 경우 알림 요청하지 않음
+        if (this.isMobileSafari && !this.isPWA) {
+            this.logDebug('Notifications not available in iOS Safari browser', 'warn');
+            return false;
+        }
 
         try {
             if (!('Notification' in window)) {
@@ -94,26 +129,39 @@ class FastingTracker {
             }
 
             const permission = await Notification.requestPermission();
-            
-            // Log the permission status after the request
             this.logDebug(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
 
-            // Check the permission status directly
-            const currentPermission = Notification.permission;
-            this.logDebug(`Current Notification permission status: ${currentPermission}`, currentPermission === 'granted' ? 'success' : 'error');
-
-            if (currentPermission === 'granted') {
-                this.logDebug('Notification permission granted', 'success');
-            } else if (currentPermission === 'denied') {
-                this.logDebug('Notification permission denied', 'warn');
-            } else {
-                this.logDebug('Notification permission dismissed', 'info');
-            }
-
-            return currentPermission === 'granted';
+            return permission === 'granted';
         } catch (error) {
             this.logDebug(`Error requesting notification permission: ${error.message}`, 'error');
             return false;
+        }
+    }
+
+    async sendNotification(title, message) {
+        // iOS Safari에서 PWA로 실행 중이 아닌 경우 알림 보내지 않음
+        if (this.isMobileSafari && !this.isPWA) {
+            console.log('Notifications not available in iOS Safari browser');
+            return;
+        }
+
+        if (Notification.permission === 'granted') {
+            // PWA에서 실행 중일 때는 서비스 워커를 통해 알림 전송
+            if (this.isPWA && 'serviceWorker' in navigator) {
+                const registration = await navigator.serviceWorker.ready;
+                registration.showNotification(title, {
+                    body: message,
+                    icon: '/icon-192.png',
+                    badge: '/icon-192.png',
+                    vibrate: [200, 100, 200]
+                });
+            } else {
+                // 일반적인 웹 알림
+                new Notification(title, {
+                    body: message,
+                    icon: '/icon-192.png'
+                });
+            }
         }
     }
 
@@ -130,15 +178,6 @@ class FastingTracker {
             this.notificationTimeout = setTimeout(() => {
                 this.sendNotification("Fasting Tracker", "Your fasting period is complete!");
             }, timeLeft);
-        }
-    }
-
-    sendNotification(title, message) {
-        if (Notification.permission === 'granted') {
-            new Notification(title, {
-                body: message,
-                icon: '/icon-192.png'
-            });
         }
     }
 
