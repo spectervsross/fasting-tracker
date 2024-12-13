@@ -502,7 +502,7 @@ class FastingTracker {
         const remainingMinutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
 
         this.remainingTimeDiv.textContent = `남은 시간: ${remainingHours}시간 ${remainingMinutes}분`;
-        this.gmtTimeDiv.textContent = `${endTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' })}에 단식이 끝나요!`;
+        this.gmtTimeDiv.textContent = `${endTime.toLocaleTimeString('ko-KR')}에 단식이 끝나요!`;
     }
 }
 
