@@ -16,65 +16,53 @@ app.use(session({
     cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
 }));
 
-// VAPID keys should be generated only once and stored securely
-const vapidKeys = webPush.generateVAPIDKeys();
-console.log('Public Key:', vapidKeys.publicKey);
-console.log('Private Key:', vapidKeys.privateKey);
+const vapidKeys = {
+    publicKey: "BPjW4qHztYuQcWyBVpk8MgGzktBOIN_IY4cPFlUFMDWuJgiQdABEeACfv2qNJ0ofWFjlqHCJWEDNb8ICKCMwC1o",
+    privateKey: "t6zoE-AR9FvkIR3rmfVQC9JLwC6DpZDeujDz14awVoA"
+};
 
-// Store these keys in your .env file
 webPush.setVapidDetails(
-    'mailto:your-email@example.com', // Replace with your email
+    'mailto:young.kkim2@gmail.com',
     vapidKeys.publicKey,
     vapidKeys.privateKey
 );
 
-// Store subscriptions (in a real app, use a database)
 let subscriptions = [];
 
-// Subscribe endpoint
+// Subscribe Endpoint
 app.post('/api/subscribe', (req, res) => {
     const subscription = req.body;
     subscriptions.push(subscription);
     res.status(201).json({});
-    
-    // Send a test notification
+
     const payload = JSON.stringify({
         title: 'Fasting Tracker',
-        body: 'Successfully subscribed to notifications!'
+        body: 'Subscribed successfully!'
     });
-    
-    webPush.sendNotification(subscription, payload)
-        .catch(error => console.error(error));
+
+    webPush.sendNotification(subscription, payload).catch(error => console.error(error));
 });
 
-// Endpoint to trigger notifications (for testing)
-app.post('/api/notify', async (req, res) => {
+// Trigger Notification Endpoint
+app.post('/api/notify', (req, res) => {
     const payload = JSON.stringify({
         title: 'Fasting Update',
         body: req.body.message || 'Time to check your fast!'
     });
 
-    const notifications = subscriptions.map(subscription => 
-        webPush.sendNotification(subscription, payload)
-            .catch(error => {
-                console.error('Error sending notification:', error);
-                // Remove invalid subscriptions
-                if (error.statusCode === 410) {
-                    subscriptions = subscriptions.filter(sub => sub.endpoint !== subscription.endpoint);
-                }
-            })
+    const notifications = subscriptions.map(subscription =>
+        webPush.sendNotification(subscription, payload).catch(error => {
+            console.error('Failed to send notification:', error);
+            if (error.statusCode === 410) {
+                subscriptions = subscriptions.filter(sub => sub.endpoint !== subscription.endpoint);
+            }
+        })
     );
 
-    try {
-        await Promise.all(notifications);
-        res.json({ message: 'Notifications sent successfully' });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to send notifications' });
-    }
+    Promise.all(notifications)
+        .then(() => res.json({ message: 'Notifications sent successfully' }))
+        .catch(error => res.status(500).json({ error: 'Failed to send notifications' }));
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log('VAPID Public Key (copy this to your script.js):', vapidKeys.publicKey);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

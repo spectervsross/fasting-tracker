@@ -41,36 +41,32 @@ class FastingTracker {
         // this.initializePushNotifications();
         
         // Updated Service Worker Registration and Push Notification Subscription
-        if ('serviceWorker' in navigator) {
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
             window.addEventListener('load', async () => {
                 try {
-                    console.log('Attempting to register service worker...');
+                    console.log('Registering service worker...');
                     const registration = await navigator.serviceWorker.register('/service-worker.js');
-                    console.log('ServiceWorker registration successful:', registration);
+                    console.log('Service worker registered:', registration);
 
-                    // Check if push is supported
-                    const pushSupported = 'PushManager' in window;
-                    console.log('Push supported:', pushSupported);
+                    // Ensure service worker is ready
+                    await navigator.serviceWorker.ready;
 
-                    if (pushSupported) {
-                        console.log('Attempting to subscribe to push notifications...');
-                        const subscription = await registration.pushManager.getSubscription();
-                        if (subscription) {
-                            console.log('Existing push subscription:', subscription);
-                        } else {
-                            console.log('No existing subscription, creating a new one...');
-                            const applicationServerKey = this.urlBase64ToUint8Array('BEOah2sU6PcXuOKlT-GdtAi3krLrU_gOjUO1WCDVG1c7EYviDJq-K5vL0RrQpeHvRzS68lx6LJ9j74SWGt6TjUo');
-                            const newSubscription = await registration.pushManager.subscribe({
-                                userVisibleOnly: true,
-                                applicationServerKey: applicationServerKey.buffer
-                            });
-                            console.log('New push subscription created:', newSubscription);
-                        }
+                    console.log('Checking existing push subscription...');
+                    let subscription = await registration.pushManager.getSubscription();
+
+                    if (!subscription) {
+                        console.log('No existing subscription. Creating new subscription...');
+                        const applicationServerKey = this.urlBase64ToUint8Array('BEOah2sU6PcXuOKlT-GdtAi3krLrU_gOjUO1WCDVG1c7EYviDJq-K5vL0RrQpeHvRzS68lx6LJ9j74SWGt6TjUo'); // Use your VAPID key
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey
+                        });
+                        console.log('New subscription:', subscription);
                     } else {
-                        console.log('Push notifications are not supported in this browser.');
+                        console.log('Using existing subscription:', subscription);
                     }
-                } catch (err) {
-                    console.error('ServiceWorker registration failed:', err);
+                } catch (error) {
+                    console.error('Service worker registration or push subscription failed:', error);
                 }
             });
         }
@@ -377,17 +373,12 @@ class FastingTracker {
     urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
         const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-        try {
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) {
-                outputArray[i] = rawData.charCodeAt(i);
-            }
-            return outputArray;
-        } catch (error) {
-            console.error('Invalid base64 encoding:', error);
-            throw new Error('Invalid applicationServerKey encoding.');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; i++) {
+            outputArray[i] = rawData.charCodeAt(i);
         }
+        return outputArray;
     }
 
     async subscribeToPushNotifications(registration) {

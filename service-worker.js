@@ -10,11 +10,8 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll(urlsToCache);
-        })
-    );
+    console.log('Service Worker installed');
+    event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('fetch', event => {
@@ -26,22 +23,17 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('activate', event => {
+    console.log('Service Worker activated');
     event.waitUntil(clients.claim());
 });
 
 self.addEventListener('push', event => {
-    const data = event.data ? event.data.json() : {
-        title: 'Fasting Tracker',
-        body: 'Time to check your fast!'
-    };
-
+    const data = event.data ? event.data.json() : { title: 'Fasting Tracker', body: 'Check your fasting progress!' };
     const options = {
         body: data.body,
         icon: '/icon-192.png',
         badge: '/icon-192.png',
-        data: {
-            url: self.registration.scope
-        }
+        data: { url: '/' }
     };
 
     event.waitUntil(
