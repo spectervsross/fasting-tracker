@@ -170,32 +170,95 @@ class FastingTracker {
             clearTimeout(this.notificationTimeout);
         }
 
-        const endTime = this.startTime.getTime() + (duration * 60 * 60 * 1000);
-        const currentTime = Date.now();
-        const timeLeft = endTime - currentTime;
+        // duration은 시간 단위로 입력됨 (예: 16, 18, 20, 24)
+        const endTime = new Date(this.startTime.getTime() + (duration * 60 * 60 * 1000));
+        const currentTime = new Date();
+        const timeLeft = endTime.getTime() - currentTime.getTime();
 
         if (timeLeft > 0) {
-            this.notificationTimeout = setTimeout(() => {
-                this.sendNotification("Fasting Tracker", "Your fasting period is complete!");
+            console.log(`Scheduling notification for ${duration} hours from now`);
+            
+            // 알림 예약
+            this.notificationTimeout = setTimeout(async () => {
+                if (this.isPWA && 'serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.ready;
+                    const endTimeStr = endTime.toLocaleTimeString('ko-KR');
+                    
+                    registration.showNotification('단식 완료!', {
+                        body: `${duration}시간 단식이 완료되었습니다! (${endTimeStr})`,
+                        icon: '/icon-192.png',
+                        badge: '/icon-192.png',
+                        vibrate: [200, 100, 200],
+                        actions: [
+                            {
+                                action: 'open',
+                                title: '앱 열기'
+                            },
+                            {
+                                action: 'close',
+                                title: '닫기'
+                            }
+                        ]
+                    });
+
+                    // 서버에 알림 요청 보내기
+                    try {
+                        await fetch('/api/notify', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                message: `${duration}시간 단식이 완료되었습니다! (${endTimeStr})`
+                            })
+                        });
+                    } catch (error) {
+                        console.error('Failed to send notification to server:', error);
+                    }
+                } else {
+                    // 일반 웹 알림 사용
+                    this.sendNotification(
+                        '단식 완료!',
+                        `${duration}시간 단식이 완료되었습니다!`
+                    );
+                }
             }, timeLeft);
+
+            // 중간 알림 (90% 지점)
+            const warningTime = timeLeft * 0.9;
+            setTimeout(async () => {
+                if (this.isPWA && 'serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.ready;
+                    const remainingMinutes = Math.round(timeLeft * 0.1 / (60 * 1000));
+                    
+                    registration.showNotification('단식 종료 임박!', {
+                        body: `단식 종료까지 약 ${remainingMinutes}분 남았습니다!`,
+                        icon: '/icon-192.png',
+                        badge: '/icon-192.png',
+                        vibrate: [200, 100, 200]
+                    });
+                }
+            }, warningTime);
+
+            console.log(`Notification scheduled for: ${endTime}`);
+            this.logDebug(`단식 종료 알림이 ${endTime.toLocaleString()}에 설정되었습니다.`, 'info');
         }
     }
 
     async startFasting(isNewSession = true) {
-        console.log('Start Fasting button clicked'); // Debug log
+        console.log('Start Fasting button clicked');
         if (isNewSession) {
-            this.startTime = new Date(); // Set startTime as a Date object
+            this.startTime = new Date();
             const selectedDuration = parseInt(this.durationSelect.value);
             localStorage.setItem('currentFasting', JSON.stringify({ 
                 startTime: this.startTime,
                 duration: selectedDuration
             }));
 
-            // Schedule notification for 10 seconds later
-            this.scheduleNotification(10 / 3600); // 10 seconds in hours
+            // 선택된 시간에 맞춰 알림 스케줄링
+            this.scheduleNotification(selectedDuration);
             
             this.updateRemainingTime();
-            
             this.updateTimer();
             
             this.updateInterval = setInterval(() => {
@@ -210,9 +273,8 @@ class FastingTracker {
             this.statusDisplay.style.color = '#4CAF50';
 
             try {
-                // Check for push notification support
+                // 알림 권한 확인 및 요청
                 if ('Notification' in window && 'serviceWorker' in navigator) {
-                    console.log('Requesting notification permission...');
                     const permission = await Notification.requestPermission();
                     console.log('Notification permission status:', permission);
                     
@@ -222,41 +284,23 @@ class FastingTracker {
                         
                         if (!subscription) {
                             try {
-                                console.log('Creating new push subscription...');
                                 subscription = await registration.pushManager.subscribe({
                                     userVisibleOnly: true,
                                     applicationServerKey: this.urlBase64ToUint8Array('BEOah2sU6PcXuOKlT-GdtAi3krLrU_gOjUO1WCDVG1c7EYviDJq-K5vL0RrQpeHvRzS68lx6LJ9j74SWGt6TjUo')
                                 });
-                                console.log('New push subscription created:', subscription.toJSON());
                                 
-                                // Show success message
-                                new Notification('Push Notifications Enabled', {
-                                    body: 'You will receive notifications about your fasting progress',
-                                    icon: '/icon-192.png'
+                                // 시작 알림
+                                registration.showNotification('단식 시작!', {
+                                    body: `${selectedDuration}시간 단식이 시작되었습니다.`,
+                                    icon: '/icon-192.png',
+                                    badge: '/icon-192.png',
+                                    vibrate: [200, 100, 200]
                                 });
-                            } catch (subscribeError) {
-                                console.log('Push subscription failed:', {
-                                    name: subscribeError.name,
-                                    message: subscribeError.message,
-                                    browserSupport: {
-                                        pushManager: 'PushManager' in window,
-                                        notification: 'Notification' in window,
-                                        serviceWorker: 'serviceWorker' in navigator
-                                    }
-                                });
+                            } catch (error) {
+                                console.error('Push subscription failed:', error);
                             }
-                        } else {
-                            console.log('Using existing push subscription');
                         }
                     }
-                }
-                
-                // Show fasting started notification
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('Fasting Started', {
-                        body: 'Your fasting timer has started. Stay strong!',
-                        icon: '/icon-192.png'
-                    });
                 }
             } catch (error) {
                 console.error('Error in notification setup:', error);
