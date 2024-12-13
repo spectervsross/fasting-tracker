@@ -74,6 +74,18 @@ class FastingTracker {
                 }
             });
         }
+
+        // Add event listener for the Install App button
+        document.getElementById('installBtn').addEventListener('click', () => {
+            alert('To install this app, tap the "Share" button in Safari, then select "Add to Home Screen."');
+        });
+
+        // Check if running as standalone PWA
+        if (window.navigator.standalone === true) {
+            console.log('Running as a standalone PWA');
+        } else {
+            console.log('Not running as standalone. Prompt user to install.');
+        }
     }
 
     async requestNotificationPermission() {
