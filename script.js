@@ -86,6 +86,21 @@ class FastingTracker {
 
         // Initialize notification support check
         this.checkNotificationSupport();
+
+        // iOS PWA에서 새로고침 시 상태 유지를 위한 페이지 로드 이벤트
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                // iOS에서 뒤로가기로 복귀한 경우
+                this.refreshSession();
+            }
+        });
+
+        // iOS PWA에서 백그라운드 진입 시 상태 저장
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                this.saveCurrentState();
+            }
+        });
     }
 
     checkNotificationSupport() {
@@ -166,6 +181,11 @@ class FastingTracker {
     }
 
     async scheduleNotification(duration) {
+        if (this.isMobileSafari && !this.isPWA) {
+            this.logDebug('Notifications not supported in iOS Safari browser', 'warn');
+            return;
+        }
+
         if (this.notificationTimeout) {
             clearTimeout(this.notificationTimeout);
         }
@@ -311,13 +331,47 @@ class FastingTracker {
     loadLastSession() {
         const lastSession = localStorage.getItem('currentFasting');
         if (lastSession) {
-            const session = JSON.parse(lastSession);
-            if (session.startTime && session.duration) {
-                this.startTime = new Date(session.startTime);
-                this.startFasting(false); // Resume fasting session
-                this.scheduleNotification(session.duration); // Schedule notification with duration
+            try {
+                const session = JSON.parse(lastSession);
+                if (session.startTime && session.duration) {
+                    const startTime = new Date(session.startTime);
+                    const currentTime = new Date();
+                    const elapsedHours = (currentTime - startTime) / (1000 * 60 * 60);
+                    
+                    // 세션이 아직 유효한지 확인
+                    if (elapsedHours <= session.duration) {
+                        this.startTime = startTime;
+                        this.startFasting(false);
+                        
+                        // 남은 시간에 대해서만 알림 설정
+                        const remainingDuration = session.duration - elapsedHours;
+                        this.scheduleNotification(remainingDuration);
+                        
+                        this.logDebug(`Session restored: ${elapsedHours.toFixed(1)} hours elapsed`, 'info');
+                    } else {
+                        // 세션이 이미 종료된 경우
+                        this.logDebug('Previous session already completed', 'info');
+                        localStorage.removeItem('currentFasting');
+                        this.addToHistory(startTime, new Date(), session.duration);
+                    }
+                }
+            } catch (error) {
+                this.logDebug(`Error loading session: ${error.message}`, 'error');
+                localStorage.removeItem('currentFasting');
             }
         }
+    }
+
+    // 히스토리에 추가하는 헬퍼 함수
+    addToHistory(startTime, endTime, duration) {
+        const historyEntry = {
+            startTime: startTime,
+            endTime: endTime,
+            duration: duration * 60 * 60 * 1000 // 시간을 밀리초로 변환
+        };
+        this.history.unshift(historyEntry);
+        localStorage.setItem('fastingHistory', JSON.stringify(this.history));
+        this.updateHistoryDisplay();
     }
 
     handleVisibilityChange() {
@@ -503,6 +557,25 @@ class FastingTracker {
 
         this.remainingTimeDiv.textContent = `남은 시간: ${remainingHours}시간 ${remainingMinutes}분`;
         this.gmtTimeDiv.textContent = `${endTime.toLocaleTimeString('ko-KR')}에 단식이 끝나요!`;
+    }
+
+    refreshSession() {
+        this.logDebug('Refreshing session state...', 'info');
+        this.loadLastSession();
+        this.updateTimer();
+        this.updateRemainingTime();
+    }
+
+    saveCurrentState() {
+        if (this.startTime) {
+            const currentState = {
+                startTime: this.startTime.toISOString(),
+                duration: parseInt(this.durationSelect.value),
+                lastSaved: new Date().toISOString()
+            };
+            localStorage.setItem('currentFasting', JSON.stringify(currentState));
+            this.logDebug('State saved before background', 'info');
+        }
     }
 }
 
