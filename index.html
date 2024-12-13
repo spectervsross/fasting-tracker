@@ -27,9 +27,8 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+
         #logContent {
-            max-height: 300px;
-            overflow-y: auto;
             background: #1e1e1e;
             color: #fff;
             font-family: monospace;
@@ -37,32 +36,40 @@
             font-size: 12px;
             border-radius: 4px;
             margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
         }
+
         #logHeader {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 10px;
         }
+
         .log-entry {
-            margin: 2px 0;
-            padding: 2px 0;
+            margin: 4px 0;
+            padding: 4px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             white-space: pre-wrap;
             word-wrap: break-word;
         }
+
         .log-error { color: #ff6b6b; }
         .log-warn { color: #ffd93d; }
         .log-info { color: #4ecdc4; }
-        #clearLogsBtn {
+
+        .debug-button {
             background: #4a4a4a;
             color: white;
             border: none;
             padding: 5px 10px;
             border-radius: 4px;
             cursor: pointer;
+            margin-left: 8px;
         }
-        #clearLogsBtn:hover {
+
+        .debug-button:hover {
             background: #666;
         }
     </style>
@@ -137,12 +144,12 @@
             }
             
             entry.textContent = `[${timestamp}] ${displayMessage}`;
-            logContent.appendChild(entry);
-            logContent.scrollTop = logContent.scrollHeight;
+            logContent.insertBefore(entry, logContent.firstChild);
         }
 
         function clearLogs() {
-            document.getElementById('logContent').innerHTML = '';
+            const logContent = document.getElementById('logContent');
+            logContent.innerHTML = '';
         }
 
         // Override console methods
@@ -155,30 +162,38 @@
 
         console.log = function(...args) {
             displayLog(args[0], 'info');
-            originalConsole.log.apply(null, args);
+            originalConsole.log.apply(console, args);
         };
         console.error = function(...args) {
             displayLog(args[0], 'error');
-            originalConsole.error.apply(null, args);
+            originalConsole.error.apply(console, args);
         };
         console.warn = function(...args) {
             displayLog(args[0], 'warn');
-            originalConsole.warn.apply(null, args);
+            originalConsole.warn.apply(console, args);
         };
         console.info = function(...args) {
             displayLog(args[0], 'info');
-            originalConsole.info.apply(null, args);
+            originalConsole.info.apply(console, args);
         };
 
-        // Toggle log visibility with height adjustment
-        document.getElementById('toggleLogBtn').addEventListener('click', () => {
+        // Initialize log visibility state
+        document.addEventListener('DOMContentLoaded', () => {
             const logContent = document.getElementById('logContent');
-            if (logContent.style.maxHeight === 'none') {
-                logContent.style.maxHeight = '300px';  // Default height
-                logContent.style.overflowY = 'auto';
-            } else {
-                logContent.style.maxHeight = 'none';  // Expand to full height
-            }
+            const toggleLogBtn = document.getElementById('toggleLogBtn');
+            const clearLogsBtn = document.getElementById('clearLogsBtn');
+            
+            // Set initial state
+            logContent.style.display = 'none';
+            
+            // Toggle log visibility
+            toggleLogBtn.addEventListener('click', () => {
+                logContent.style.display = logContent.style.display === 'none' ? 'block' : 'none';
+                toggleLogBtn.textContent = logContent.style.display === 'none' ? 'Show Logs' : 'Hide Logs';
+            });
+            
+            // Clear logs
+            clearLogsBtn.addEventListener('click', clearLogs);
         });
     </script>
     <link rel="stylesheet" href="styles.css">
@@ -213,18 +228,18 @@
             </div>
         </div>
 
-        <button id="toggleLogBtn" class="button">Toggle Logs</button>
-        <div id="logContent" class="debug-log" style="display: none;"></div>
-
-        <!-- Log Section -->
+        <!-- Unified Log Section -->
         <div id="logSection">
             <div id="logHeader">
                 <h2>System Logs</h2>
-                <button id="clearLogsBtn" onclick="clearLogs()">Clear Logs</button>
+                <div>
+                    <button id="toggleLogBtn" class="debug-button">Toggle Logs</button>
+                    <button id="clearLogsBtn" class="debug-button">Clear Logs</button>
+                </div>
             </div>
-            <div id="logContainer"></div>
+            <div id="logContent"></div>
         </div>
-        
+
         <div class="remaining-time-section">
             <h2><span id="remainingTime">00:00:00</span></h2>
         </div>
