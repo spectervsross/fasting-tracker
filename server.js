@@ -3,10 +3,18 @@ const express = require('express');
 const webPush = require('web-push');
 const bodyParser = require('body-parser');
 const path = require('path');
+const session = require('express-session');
 
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
+
+app.use(session({
+    secret: 'fasting_tracker_secret_key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+}));
 
 // VAPID keys should be generated only once and stored securely
 const vapidKeys = webPush.generateVAPIDKeys();

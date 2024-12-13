@@ -221,31 +221,10 @@ class FastingTracker {
         const lastSession = localStorage.getItem('currentFasting');
         if (lastSession) {
             const session = JSON.parse(lastSession);
-            if (session.startTime) {
+            if (session.startTime && session.duration) {
                 this.startTime = new Date(session.startTime);
-                
-                // Check if we need to show a missed notification
-                const endTimeStr = localStorage.getItem('fastingEndTime');
-                if (endTimeStr) {
-                    const endTime = new Date(endTimeStr);
-                    if (endTime < new Date()) {
-                        // Fasting period ended while away
-                        if (this.isMobileSafari) {
-                            setTimeout(() => alert('Your fasting period ended while you were away!'), 1000);
-                        } else if (Notification.permission === 'granted') {
-                            new Notification('Fasting Complete!', {
-                                body: 'Your fasting period ended while you were away.',
-                                icon: '/icon.png'
-                            });
-                        }
-                    } else {
-                        // Reschedule notification for remaining time
-                        const remainingTime = (endTime - new Date()) / (1000 * 60 * 60);
-                        this.scheduleNotification(remainingTime);
-                    }
-                }
-                
-                this.startFasting(false);
+                this.startFasting(false); // Resume fasting session
+                this.scheduleNotification(session.duration); // Schedule notification with duration
             }
         }
     }
@@ -321,62 +300,20 @@ class FastingTracker {
     }
 
     async initializePushNotifications() {
-        this.logDebug('Initializing push notifications...', 'info');
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-        this.logDebug(`Environment: ${isIOS ? 'iOS' : 'Not iOS'} / ${isSafari ? 'Safari' : 'Not Safari'}`, 'info');
-
-        if (isIOS && isSafari) {
-            this.logDebug('iOS Safari detected - checking permissions...', 'info');
-            
-            if ('permissions' in navigator) {
-                try {
-                    const result = await navigator.permissions.query({ name: 'notifications' });
-                    this.logDebug(`Permission status: ${result.state}`, 'info');
-                    
-                    if (result.state === 'prompt' || result.state === 'default') {
-                        const permission = await Notification.requestPermission();
-                        this.logDebug(`iOS Safari permission result: ${permission}`, 'info');
-                    }
-                } catch (error) {
-                    this.logDebug(`Permission query error: ${error.message}`, 'error');
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            try {
+                const registration = await navigator.serviceWorker.register('/service-worker.js');
+                const subscription = await registration.pushManager.getSubscription();
+                if (!subscription) {
+                    const applicationServerKey = this.urlBase64ToUint8Array('<Your VAPID Key>'); // Replace with your VAPID key
+                    await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey
+                    });
                 }
-            } else {
-                const permission = await Notification.requestPermission();
-                this.logDebug(`iOS Safari fallback permission: ${permission}`, 'info');
+            } catch (error) {
+                console.error('Push Notification Initialization Failed:', error);
             }
-            return;
-        }
-
-        if (!('Notification' in window)) {
-            this.logDebug('Notifications not supported in this browser', 'error');
-            return;
-        }
-
-        try {
-            const permission = await Notification.requestPermission();
-            this.logDebug(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
-            
-            if (permission === 'granted') {
-                // Push notifications subscription logic can be added here if needed
-            }
-        } catch (error) {
-            this.logDebug(`Error in push initialization: ${error.message}`, 'error');
-        }
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', async () => {
-                try {
-                    console.log('Attempting to register service worker...');
-                    const registration = await navigator.serviceWorker.register('/service-worker.js');
-                    console.log('ServiceWorker registration successful:', registration);
-                    // Call the function to subscribe to push notifications here
-                    await this.subscribeToPushNotifications(registration);
-                } catch (err) {
-                    console.error('ServiceWorker registration failed:', err);
-                }
-            });
         }
     }
 
