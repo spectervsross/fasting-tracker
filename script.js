@@ -152,8 +152,8 @@ class FastingTracker {
                 duration: selectedDuration
             }));
 
-            // Schedule notification for 1 minute later
-            this.scheduleNotification(1/60); // 1 minute in hours
+            // Schedule notification for 10 seconds later
+            this.scheduleNotification(10 / 3600); // 10 seconds in hours
             
             this.updateRemainingTime();
             

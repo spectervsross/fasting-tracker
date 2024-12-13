@@ -169,6 +169,17 @@
             displayLog(args[0], 'info');
             originalConsole.info.apply(null, args);
         };
+
+        // Toggle log visibility with height adjustment
+        document.getElementById('toggleLogBtn').addEventListener('click', () => {
+            const logContent = document.getElementById('logContent');
+            if (logContent.style.maxHeight === 'none') {
+                logContent.style.maxHeight = '300px';  // Default height
+                logContent.style.overflowY = 'auto';
+            } else {
+                logContent.style.maxHeight = 'none';  // Expand to full height
+            }
+        });
     </script>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -202,13 +213,16 @@
             </div>
         </div>
 
+        <button id="toggleLogBtn" class="button">Toggle Logs</button>
+        <div id="logContent" class="debug-log" style="display: none;"></div>
+
         <!-- Log Section -->
         <div id="logSection">
             <div id="logHeader">
                 <h2>System Logs</h2>
                 <button id="clearLogsBtn" onclick="clearLogs()">Clear Logs</button>
             </div>
-            <div id="logContent"></div>
+            <div id="logContainer"></div>
         </div>
         
         <div class="remaining-time-section">

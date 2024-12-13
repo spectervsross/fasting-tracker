@@ -191,8 +191,8 @@ h2 {
 }
 
 #logContent {
-    max-height: 300px;
-    overflow-y: auto;
+    max-height: none; /* Remove height limitation */
+    overflow-y: auto;  /* Enable scrolling */
     background: #1e1e1e;
     color: #fff;
     font-family: monospace;
@@ -200,6 +200,7 @@ h2 {
     font-size: 12px;
     border-radius: 4px;
     margin-top: 10px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+    text-align: left;  /* Ensure left alignment */
+    white-space: pre-wrap;  /* Preserve line breaks */
+    word-wrap: break-word;  /* Prevent overflow */
 }
