@@ -1,72 +1,88 @@
-const CACHE_NAME = 'fasting-tracker-cache-v1';
-const urlsToCache = [
+const CACHE_NAME = 'fasting-tracker-v1';
+const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
-    '/manifest.json',
-    '/styles.css',
     '/script.js',
-    '/service-worker.js',
-    '/icon-192.png'
+    '/styles.css',
+    '/icon-192.png',
+    '/manifest.json'
 ];
 
-self.addEventListener('install', event => {
-    console.log('Service Worker installed');
+// 설치 단계 - 리소스 캐시
+self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
-                console.log('Caching app shell');
-                return cache.addAll(urlsToCache);
-            })
-            .then(() => self.skipWaiting())
-    );
-});
-
-self.addEventListener('activate', event => {
-    console.log('Service Worker activated');
-    event.waitUntil(
-        Promise.all([
-            self.clients.claim(),
-            // Clear old caches
-            caches.keys().then(cacheNames => {
+                console.log('Opened cache');
+                // 각 리소스를 개별적으로 캐시하여 실패한 항목 확인
                 return Promise.all(
-                    cacheNames.map(cacheName => {
-                        if (cacheName !== CACHE_NAME) {
-                            return caches.delete(cacheName);
-                        }
+                    ASSETS_TO_CACHE.map(url => {
+                        return cache.add(url).catch(err => {
+                            console.error('Cache add failed for:', url, err);
+                            return Promise.resolve(); // 개별 실패를 허용하고 계속 진행
+                        });
                     })
                 );
             })
-        ])
-    );
-});
-
-self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                if (response) {
-                    return response;
-                }
-                return fetch(event.request).then(response => {
-                    // Check if we received a valid response
-                    if (!response || response.status !== 200 || response.type !== 'basic') {
-                        return response;
-                    }
-
-                    // Clone the response
-                    const responseToCache = response.clone();
-
-                    caches.open(CACHE_NAME)
-                        .then(cache => {
-                            cache.put(event.request, responseToCache);
-                        });
-
-                    return response;
-                });
+            .catch(error => {
+                console.error('Service Worker 설치 중 오류 발생:', error);
             })
     );
 });
 
+// 활성화 단계 - 이전 캐시 정리
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+});
+
+// 요청 가로채기 - 캐시 우선 전략
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                // 캐시에서 찾았다면 반환
+                if (response) {
+                    return response;
+                }
+
+                // 캐시에 없다면 네트워크 요청
+                return fetch(event.request).then(
+                    response => {
+                        // 유효한 응답이 아니라면 그대로 반환
+                        if (!response || response.status !== 200 || response.type !== 'basic') {
+                            return response;
+                        }
+
+                        // 응답을 복제하여 캐시에 저장
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME)
+                            .then(cache => {
+                                cache.put(event.request, responseToCache);
+                            });
+
+                        return response;
+                    }
+                );
+            })
+            .catch(error => {
+                console.error('Fetch handler failed:', error);
+                // 오프라인 폴백 페이지나 기본 에러 페이지 제공 가능
+            })
+    );
+});
+
+// 푸시 알림 처리
 self.addEventListener('push', event => {
     console.log('Push event received:', event);
     
@@ -111,6 +127,7 @@ self.addEventListener('push', event => {
     );
 });
 
+// 알림 클릭 처리
 self.addEventListener('notificationclick', event => {
     console.log('Notification click event:', event);
     
