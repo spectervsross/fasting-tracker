@@ -97,6 +97,23 @@ class FastingTracker {
         
         // DOM elements 초기화를 initializeApp으로 이동
         this.initializeApp();
+        
+        // 세션 상태 체크 간격 설정 (5분마다)
+        this.SESSION_CHECK_INTERVAL = 5 * 60 * 1000; 
+        this.timerWorker = null;
+        this.initializeTimerWorker();
+    }
+
+    initializeTimerWorker() {
+        this.timerWorker = new Worker('timer-worker.js');
+        this.timerWorker.onmessage = (e) => {
+            if (e.data.type === 'tick') {
+                this.updateTimerDisplay(e.data.timeLeft);
+                this.saveProgressToStorage(e.data.currentTime);
+            } else if (e.data.type === 'completed') {
+                this.handleFastingComplete();
+            }
+        };
     }
 
     async initializeApp() {
@@ -157,38 +174,30 @@ class FastingTracker {
 
     // startFasting 메서드 수정
     async startFasting(isNewSession = true) {
-        if (!this.initialized) {
-            this.logDebug('FastingTracker not yet initialized', 'error');
-            return;
-        }
-
-        console.log('Start Fasting button clicked');
         if (isNewSession) {
             try {
-                this.startTime = new Date();
+                const startTime = new Date().getTime();
                 const selectedDuration = parseInt(this.durationSelect.value);
-                const endTime = new Date(this.startTime.getTime() + selectedDuration * 60 * 60 * 1000);
-                
-                await this.sessionManager.setItem('currentFasting', { endTime: endTime });
+                const endTime = startTime + (selectedDuration * 60 * 60 * 1000);
 
-                this.scheduleNotification(selectedDuration);
-                this.updateRemainingTime();
-                this.updateTimer();
-                
-                this.updateInterval = setInterval(() => {
-                    if (document.visibilityState === 'visible') {
-                        this.updateTimer();
-                    }
-                }, 1000);
+                // Worker 시작
+                this.timerWorker.postMessage({
+                    action: 'start',
+                    startTime: startTime,
+                    endTime: endTime
+                });
 
-                this.startButton.style.display = 'none';
-                this.stopButton.style.display = 'block';
-                this.statusDisplay.textContent = 'FASTING';
-                this.statusDisplay.style.color = '#4CAF50';
+                // IndexedDB에 저장
+                await this.sessionManager.setItem('currentFasting', {
+                    startTime,
+                    endTime,
+                    duration: selectedDuration,
+                    status: 'active'
+                });
 
-                // 나머지 알림 관련 코드...
+                // UI 업데이트
+                this.updateUI('FASTING');
             } catch (error) {
-                this.logDebug(`Error starting fast: ${error.message}`, 'error');
                 console.error('Error starting fast:', error);
             }
         }
@@ -357,39 +366,34 @@ class FastingTracker {
     }
 
     async loadLastSession() {
-        const lastSession = await this.sessionManager.getItem('currentFasting');
-        if (lastSession) {
-            try {
-                const session = lastSession;
-                this.logDebug(`Loaded session: ${JSON.stringify(session)}`, 'info');
-                if (session.endTime) {
-                    const endTime = new Date(session.endTime);
-                    const currentTime = new Date();
-                    const remainingTime = endTime - currentTime;
+        try {
+            const lastSession = await this.sessionManager.getItem('currentFasting');
+            if (lastSession && lastSession.status === 'active') {
+                const now = new Date();
+                const endTime = new Date(lastSession.endTime);
+                const startTime = new Date(lastSession.startTime);
+
+                if (now < endTime) {
+                    // 유효한 세션 복원
+                    this.startTime = startTime;
+                    this.startFasting(false);
                     
-                    this.logDebug(`End Time: ${endTime}`, 'info');
-                    this.logDebug(`Current Time: ${currentTime}`, 'info');
-                    this.logDebug(`Remaining Time (ms): ${remainingTime}`, 'info');
+                    // 세션 모니터링 재시작
+                    this.startSessionMonitoring();
+
+                    const remainingTime = (endTime - now) / (1000 * 60 * 60);
+                    this.scheduleNotification(remainingTime);
                     
-                    if (remainingTime > 0) {
-                        this.startTime = new Date(endTime.getTime() - this.getDurationFromRemainingTime(remainingTime));
-                        this.startFasting(false);
-                        
-                        const remainingDuration = remainingTime / (1000 * 60 * 60);
-                        this.scheduleNotification(remainingDuration);
-                        
-                        this.logDebug(`Session restored: ${remainingDuration.toFixed(1)} hours remaining`, 'info');
-                    } else {
-                        // 세션이 이미 종료된 경우
-                        this.logDebug('Previous session already completed', 'info');
-                        await this.sessionManager.removeItem('currentFasting');
-                        this.addToHistory(new Date(endTime.getTime() - this.getDurationFromRemainingTime(remainingTime)), endTime, this.getDurationFromRemainingTime(remainingTime));
-                    }
+                    this.logDebug(`Session restored: ${remainingTime.toFixed(1)} hours remaining`, 'info');
+                } else {
+                    // 만료된 세션 정리
+                    this.logDebug('Previous session expired', 'info');
+                    await this.stopFasting(true);
                 }
-            } catch (error) {
-                this.logDebug(`Error loading session: ${error.message}`, 'error');
-                await this.sessionManager.removeItem('currentFasting');
             }
+        } catch (error) {
+            this.logDebug(`Error loading session: ${error.message}`, 'error');
+            await this.sessionManager.removeItem('currentFasting');
         }
     }
 
@@ -412,37 +416,44 @@ class FastingTracker {
     }
 
     handleVisibilityChange() {
-        if (document.visibilityState === 'visible' && this.startTime) {
-            this.updateTimer();
+        if (document.visibilityState === 'visible') {
+            this.checkAndUpdateSession();
         }
     }
 
-    async stopFasting() {
-        clearInterval(this.updateInterval);
-        if (this.notificationTimeout) {
-            clearTimeout(this.notificationTimeout);
-        }
+    async stopFasting(isAutoStop = false) {
+        try {
+            const currentSession = await this.sessionManager.getItem('currentFasting');
+            if (currentSession) {
+                const endTime = isAutoStop ? new Date(currentSession.endTime) : new Date();
+                const duration = (endTime - new Date(currentSession.startTime)) / (1000 * 60 * 60);
 
-        const endTime = new Date();
-        const duration = endTime.getTime() - this.startTime.getTime();
-        
-        this.history.unshift({
-            startTime: this.startTime,
-            endTime: endTime,
-            duration: duration
-        });
-        
-        localStorage.setItem('fastingHistory', JSON.stringify(this.history));
-        // localStorage.removeItem('currentFasting'); 대신 SessionStorageManager 사용
-        await this.sessionManager.removeItem('currentFasting');
-        
-        this.startButton.style.display = 'block';
-        this.stopButton.style.display = 'none';
-        this.statusDisplay.textContent = 'NOT FASTING';
-        this.timerDisplay.textContent = '00:00:00';
-        this.startTime = null;
-        
-        this.updateHistoryDisplay();
+                // 히스토리에 추가
+                this.addToHistory(new Date(currentSession.startTime), endTime, duration);
+
+                // 세션 정리
+                await this.sessionManager.removeItem('currentFasting');
+                
+                // 인터벌 정리
+                if (this.sessionCheckInterval) {
+                    clearInterval(this.sessionCheckInterval);
+                }
+                if (this.updateInterval) {
+                    clearInterval(this.updateInterval);
+                }
+
+                // UI 업데이트
+                this.startButton.style.display = 'block';
+                this.stopButton.style.display = 'none';
+                this.statusDisplay.textContent = 'NOT FASTING';
+                this.timerDisplay.textContent = '00:00:00';
+                this.startTime = null;
+
+                this.updateHistoryDisplay();
+            }
+        } catch (error) {
+            console.error('Error stopping fast:', error);
+        }
     }
 
     updateTimer() {
@@ -613,6 +624,62 @@ class FastingTracker {
             };
             localStorage.setItem('currentFasting', JSON.stringify(currentState));
             this.logDebug('State saved before background', 'info');
+        }
+    }
+
+    // 세션 모니터링 시작
+    startSessionMonitoring() {
+        if (this.sessionCheckInterval) {
+            clearInterval(this.sessionCheckInterval);
+        }
+
+        this.sessionCheckInterval = setInterval(async () => {
+            await this.checkAndUpdateSession();
+        }, this.SESSION_CHECK_INTERVAL);
+    }
+
+    // 세션 상태 확인 및 업데이트
+    async checkAndUpdateSession() {
+        try {
+            const currentSession = await this.sessionManager.getItem('currentFasting');
+            if (currentSession && currentSession.status === 'active') {
+                const now = new Date();
+                const endTime = new Date(currentSession.endTime);
+
+                if (now >= endTime) {
+                    // 세션 종료 처리
+                    await this.stopFasting(true);
+                } else {
+                    // 세션 상태 업데이트
+                    currentSession.lastUpdated = now;
+                    await this.sessionManager.setItem('currentFasting', currentSession);
+                }
+            }
+        } catch (error) {
+            console.error('Session check failed:', error);
+        }
+    }
+
+    saveProgressToStorage(currentTime) {
+        // 주기적으로 IndexedDB에 진행 상황 저장
+        if (currentTime % (5 * 60 * 1000) === 0) { // 5분마다 저장
+            this.sessionManager.getItem('currentFasting').then(session => {
+                if (session) {
+                    session.lastChecked = currentTime;
+                    this.sessionManager.setItem('currentFasting', session);
+                }
+            });
+        }
+    }
+
+    handleFastingComplete() {
+        this.stopFasting(true);
+        // 완료 알림 표시
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('단식 완료!', {
+                body: '축하합니다! 단식이 완료되었습니다.',
+                icon: '/icon-192.png'
+            });
         }
     }
 }
