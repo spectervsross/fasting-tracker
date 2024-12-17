@@ -1,3 +1,89 @@
+class SessionStorageManager {
+    constructor(dbName = 'FastingTrackerDB', storeName = 'sessions') {
+        this.dbName = dbName;
+        this.storeName = storeName;
+        this.db = null;
+    }
+
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, 1);
+
+            request.onerror = (event) => {
+                console.error('IndexedDB 오류:', event.target.errorCode);
+                reject(event.target.errorCode);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(this.storeName)) {
+                    db.createObjectStore(this.storeName, { keyPath: 'key' });
+                }
+            };
+
+            request.onsuccess = (event) => {
+                this.db = event.target.result;
+                resolve();
+            };
+        });
+    }
+
+    async setItem(key, value) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            const request = store.put({ key, value });
+
+            request.onsuccess = () => {
+                resolve();
+            };
+
+            request.onerror = (event) => {
+                console.error('IndexedDB setItem 오류:', event.target.errorCode);
+                reject(event.target.errorCode);
+            };
+        });
+    }
+
+    async getItem(key) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.storeName], 'readonly');
+            const store = transaction.objectStore(this.storeName);
+            const request = store.get(key);
+
+            request.onsuccess = (event) => {
+                if (event.target.result) {
+                    resolve(event.target.result.value);
+                } else {
+                    resolve(null);
+                }
+            };
+
+            request.onerror = (event) => {
+                console.error('IndexedDB getItem 오류:', event.target.errorCode);
+                reject(event.target.errorCode);
+            };
+        });
+    }
+
+    async removeItem(key) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            const request = store.delete(key);
+
+            request.onsuccess = () => {
+                resolve();
+            };
+
+            request.onerror = (event) => {
+                console.error('IndexedDB removeItem 오류:', event.target.errorCode);
+                reject(event.target.errorCode);
+            };
+        });
+    }
+}
+
 class FastingTracker {
     constructor() {
         this.logDebug('FastingTracker initialized', 'info');
@@ -32,15 +118,17 @@ class FastingTracker {
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
 
         // Initialize
-        this.loadLastSession();
-        this.updateHistoryDisplay();
-        
-        // Request notification permission on initialization
-        this.requestNotificationPermission();
+        this.sessionManager = new SessionStorageManager();
+        this.sessionManager.init()
+            .then(() => {
+                this.loadLastSession();
+                this.updateHistoryDisplay();
+                this.requestNotificationPermission();
+            })
+            .catch((error) => {
+                console.error('SessionStorageManager 초기화 실패:', error);
+            });
 
-        // Initialize push notifications
-        // this.initializePushNotifications();
-        
         // Updated Service Worker Registration and Push Notification Subscription
         if ('serviceWorker' in navigator && 'PushManager' in window) {
             window.addEventListener('load', async () => {
@@ -95,7 +183,7 @@ class FastingTracker {
             }
         });
 
-        // iOS PWA에서 백그라운드 진입 시 상태 저장
+        // iOS PWA에서 백���라운드 진입 시 상태 저장
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
                 this.saveCurrentState();
@@ -161,7 +249,7 @@ class FastingTracker {
         }
 
         if (Notification.permission === 'granted') {
-            // PWA에서 실행 중일 때는 서비스 워커를 통해 알림 전송
+            // PWA에서 실행 중일 때는 서비스 워커를 통해 ��림 전송
             if (this.isPWA && 'serviceWorker' in navigator) {
                 const registration = await navigator.serviceWorker.ready;
                 registration.showNotification(title, {
@@ -270,10 +358,10 @@ class FastingTracker {
         if (isNewSession) {
             this.startTime = new Date();
             const selectedDuration = parseInt(this.durationSelect.value);
-            localStorage.setItem('currentFasting', JSON.stringify({ 
-                startTime: this.startTime,
-                duration: selectedDuration
-            }));
+            const endTime = new Date(this.startTime.getTime() + selectedDuration * 60 * 60 * 1000);
+            
+            // localStorage 대신 SessionStorageManager 사용
+            await this.sessionManager.setItem('currentFasting', { endTime: endTime });
 
             // 선택된 시간에 맞춰 알림 스케줄링
             this.scheduleNotification(selectedDuration);
@@ -328,38 +416,47 @@ class FastingTracker {
         }
     }
 
-    loadLastSession() {
-        const lastSession = localStorage.getItem('currentFasting');
+    async loadLastSession() {
+        const lastSession = await this.sessionManager.getItem('currentFasting');
         if (lastSession) {
             try {
-                const session = JSON.parse(lastSession);
-                if (session.startTime && session.duration) {
-                    const startTime = new Date(session.startTime);
+                const session = lastSession;
+                this.logDebug(`Loaded session: ${JSON.stringify(session)}`, 'info');
+                if (session.endTime) {
+                    const endTime = new Date(session.endTime);
                     const currentTime = new Date();
-                    const elapsedHours = (currentTime - startTime) / (1000 * 60 * 60);
+                    const remainingTime = endTime - currentTime;
                     
-                    // 세션이 아직 유효한지 확인
-                    if (elapsedHours <= session.duration) {
-                        this.startTime = startTime;
+                    this.logDebug(`End Time: ${endTime}`, 'info');
+                    this.logDebug(`Current Time: ${currentTime}`, 'info');
+                    this.logDebug(`Remaining Time (ms): ${remainingTime}`, 'info');
+                    
+                    if (remainingTime > 0) {
+                        this.startTime = new Date(endTime.getTime() - this.getDurationFromRemainingTime(remainingTime));
                         this.startFasting(false);
                         
-                        // 남은 시간에 대해서만 알림 설정
-                        const remainingDuration = session.duration - elapsedHours;
+                        const remainingDuration = remainingTime / (1000 * 60 * 60);
                         this.scheduleNotification(remainingDuration);
                         
-                        this.logDebug(`Session restored: ${elapsedHours.toFixed(1)} hours elapsed`, 'info');
+                        this.logDebug(`Session restored: ${remainingDuration.toFixed(1)} hours remaining`, 'info');
                     } else {
                         // 세션이 이미 종료된 경우
                         this.logDebug('Previous session already completed', 'info');
-                        localStorage.removeItem('currentFasting');
-                        this.addToHistory(startTime, new Date(), session.duration);
+                        await this.sessionManager.removeItem('currentFasting');
+                        this.addToHistory(new Date(endTime.getTime() - this.getDurationFromRemainingTime(remainingTime)), endTime, this.getDurationFromRemainingTime(remainingTime));
                     }
                 }
             } catch (error) {
                 this.logDebug(`Error loading session: ${error.message}`, 'error');
-                localStorage.removeItem('currentFasting');
+                await this.sessionManager.removeItem('currentFasting');
             }
         }
+    }
+
+    // 새로운 헬퍼 함수 추가
+    getDurationFromRemainingTime(remainingTime) {
+        // remainingTime은 밀리초 단위
+        return remainingTime / (60 * 60 * 1000); // 시간을 시간 단위로 변환
     }
 
     // 히스토리에 추가하는 헬퍼 함수
@@ -380,7 +477,7 @@ class FastingTracker {
         }
     }
 
-    stopFasting() {
+    async stopFasting() {
         clearInterval(this.updateInterval);
         if (this.notificationTimeout) {
             clearTimeout(this.notificationTimeout);
@@ -396,7 +493,8 @@ class FastingTracker {
         });
         
         localStorage.setItem('fastingHistory', JSON.stringify(this.history));
-        localStorage.removeItem('currentFasting');
+        // localStorage.removeItem('currentFasting'); 대신 SessionStorageManager 사용
+        await this.sessionManager.removeItem('currentFasting');
         
         this.startButton.style.display = 'block';
         this.stopButton.style.display = 'none';
