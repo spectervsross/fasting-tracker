@@ -95,7 +95,47 @@ class FastingTracker {
         this.isPWA = window.navigator.standalone === true;
         this.initialized = false;
         
-        // DOM elements
+        // DOM elements 초기화를 initializeApp으로 이동
+        this.initializeApp();
+    }
+
+    async initializeApp() {
+        try {
+            // DOM elements 초기화
+            this.initializeDOMElements();
+            
+            // SessionStorageManager 초기화
+            this.sessionManager = new SessionStorageManager();
+            await this.sessionManager.init();
+            
+            if (this.startButton && this.stopButton) {
+                // 이벤트 리스너 바인딩
+                this.startButton.addEventListener('click', () => this.startFasting());
+                this.stopButton.addEventListener('click', () => this.stopFasting());
+                this.requestPermissionBtn?.addEventListener('click', () => this.requestNotificationPermission());
+                this.checkStatusBtn?.addEventListener('click', () => this.checkNotificationStatus());
+                this.durationSelect?.addEventListener('change', () => this.updateRemainingTime());
+
+                // Handle visibility change
+                document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
+
+                // 마지막 세션 로드 및 초기화
+                await this.loadLastSession();
+                this.updateHistoryDisplay();
+                await this.requestNotificationPermission();
+
+                this.initialized = true;
+                this.logDebug('FastingTracker initialization completed', 'info');
+            } else {
+                throw new Error('Required DOM elements not found');
+            }
+        } catch (error) {
+            console.error('FastingTracker initialization failed:', error);
+            this.logDebug(`Initialization error: ${error.message}`, 'error');
+        }
+    }
+
+    initializeDOMElements() {
         this.timerDisplay = document.getElementById('timer');
         this.statusDisplay = document.getElementById('status');
         this.startButton = document.getElementById('startButton');
@@ -108,36 +148,10 @@ class FastingTracker {
         this.remainingTimeDiv = document.getElementById('remainingTime');
         this.gmtTimeDiv = document.getElementById('gmtTime');
 
-        // Event listeners - 초기화 후 이벤트 바인딩
-        this.initializeApp();
-    }
-
-    async initializeApp() {
-        try {
-            // SessionStorageManager 초기화
-            this.sessionManager = new SessionStorageManager();
-            await this.sessionManager.init();
-            
-            // 이벤트 리스너 바인딩
-            this.startButton.addEventListener('click', () => this.startFasting());
-            this.stopButton.addEventListener('click', () => this.stopFasting());
-            this.requestPermissionBtn.addEventListener('click', () => this.requestNotificationPermission());
-            this.checkStatusBtn.addEventListener('click', () => this.checkNotificationStatus());
-            this.durationSelect.addEventListener('change', () => this.updateRemainingTime());
-
-            // Handle visibility change
-            document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
-
-            // 마지막 세션 로드 및 초기화
-            await this.loadLastSession();
-            this.updateHistoryDisplay();
-            await this.requestNotificationPermission();
-
-            this.initialized = true;
-            this.logDebug('FastingTracker initialization completed', 'info');
-        } catch (error) {
-            console.error('FastingTracker initialization failed:', error);
-            this.logDebug(`Initialization error: ${error.message}`, 'error');
+        // DOM 요소 존재 여부 확인
+        if (!this.timerDisplay || !this.statusDisplay || !this.startButton || !this.stopButton) {
+            this.logDebug('Required DOM elements not found', 'error');
+            throw new Error('Required DOM elements not found');
         }
     }
 

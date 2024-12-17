@@ -4,7 +4,6 @@ const ASSETS_TO_CACHE = [
     '/index.html',
     '/script.js',
     '/styles.css',
-    '/icon-192.png',
     '/manifest.json'
 ];
 
@@ -77,7 +76,7 @@ self.addEventListener('fetch', (event) => {
             })
             .catch(error => {
                 console.error('Fetch handler failed:', error);
-                // 오프라인 폴백 페이지나 기본 에러 페이지 제공 가능
+                // 오프라인 폴백 페이지�� 기본 에러 페이지 제공 가능
             })
     );
 });
