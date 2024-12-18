@@ -18,26 +18,34 @@ self.addEventListener('install', (event) => {
                 return Promise.allSettled(
                     ASSETS_TO_CACHE.map(async url => {
                         try {
-                            // 절대 URL 생성
-                            const requestUrl = new URL(url, self.location.origin);
+                            // 상대 경로를 절대 경로로 변환
+                            const absoluteUrl = new URL(url, self.location.origin).href;
                             
-                            // chrome-extension URL 체크
-                            if (requestUrl.protocol === 'chrome-extension:') {
-                                console.warn('Skipping chrome-extension URL:', url);
+                            // URL 프로토콜 검사
+                            const urlObj = new URL(absoluteUrl);
+                            if (!['http:', 'https:'].includes(urlObj.protocol)) {
+                                console.warn(`Skipping invalid protocol: ${urlObj.protocol} for ${url}`);
                                 return;
                             }
 
-                            const request = new Request(requestUrl.href);
-                            const response = await fetch(request);
-                            
+                            // 리소스 가져오기 시도
+                            const response = await fetch(absoluteUrl, {
+                                method: 'GET',
+                                cache: 'no-cache'
+                            });
+
                             if (!response.ok) {
-                                throw new Error(`Failed to fetch ${url}`);
+                                throw new Error(`HTTP error! status: ${response.status}`);
                             }
-                            
-                            await cache.put(request, response);
-                            console.log('Cached:', url);
+
+                            // 성공적으로 가져온 리소스 캐시
+                            const clonedResponse = response.clone();
+                            await cache.put(url, clonedResponse);
+                            console.log(`Successfully cached: ${url}`);
+
                         } catch (error) {
-                            console.warn(`Failed to cache ${url}:`, error);
+                            console.warn(`Failed to cache ${url}:`, error.message);
+                            return Promise.resolve(); // 실패해도 계속 진행
                         }
                     })
                 );
