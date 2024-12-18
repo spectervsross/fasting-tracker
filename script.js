@@ -120,6 +120,12 @@ class FastingTracker {
                 'info',
                 'visibility'
             );
+
+            if (document.visibilityState === 'hidden') {
+                this.saveCurrentState(); // 현재 상태 저장
+            } else {
+                this.refreshSession(); // 세션 상태 갱신
+            }
         });
 
         // 앱 시작/종료 감지
@@ -418,15 +424,15 @@ class FastingTracker {
                     const remainingTime = (endTime - now) / (1000 * 60 * 60);
                     this.scheduleNotification(remainingTime);
                     
-                    this.logDebug(`Session restored: ${remainingTime.toFixed(1)} hours remaining`, 'info');
+                    this.logger.log(`Session restored: ${remainingTime.toFixed(1)} hours remaining`, 'info');
                 } else {
                     // 만료된 세션 정리
-                    this.logDebug('Previous session expired', 'info');
+                    this.logger.log('Previous session expired', 'info');
                     await this.stopFasting(true);
                 }
             }
         } catch (error) {
-            this.logDebug(`Error loading session: ${error.message}`, 'error');
+            this.logger.log(`Error loading session: ${error.message}`, 'error');
             await this.sessionManager.removeItem('currentFasting');
         }
     }
@@ -649,7 +655,7 @@ class FastingTracker {
     }
 
     refreshSession() {
-        this.logDebug('Refreshing session state...', 'info');
+        this.logger.log('Refreshing session state...', 'info');
         this.loadLastSession();
         this.updateTimer();
         this.updateRemainingTime();
@@ -663,7 +669,7 @@ class FastingTracker {
                 lastSaved: new Date().toISOString()
             };
             localStorage.setItem('currentFasting', JSON.stringify(currentState));
-            this.logDebug('State saved before background', 'info');
+            this.logger.log('State saved before background', 'info');
         }
     }
 
