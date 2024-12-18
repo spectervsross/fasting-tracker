@@ -107,6 +107,8 @@ class FastingTracker {
     initializeTimerWorker() {
         this.timerWorker = new Worker('timer-worker.js');
         this.timerWorker.onmessage = (e) => {
+            if (!this.timerDisplay) return;
+            
             if (e.data.type === 'tick') {
                 this.updateTimerDisplay(e.data.timeLeft);
                 this.saveProgressToStorage(e.data.currentTime);
@@ -231,7 +233,7 @@ class FastingTracker {
     async requestNotificationPermission() {
         this.logDebug('Requesting notification permission...', 'info');
 
-        // iOS Safari에서 PWA로 실행 중이 아닌 경우 알림 요청하지 않음
+        // iOS Safari에서 PWA로 실행 중이 아닌 경우 알림 요청하지 ��음
         if (this.isMobileSafari && !this.isPWA) {
             this.logDebug('Notifications not available in iOS Safari browser', 'warn');
             return false;
@@ -680,6 +682,39 @@ class FastingTracker {
                 body: '축하합니다! 단식이 완료되었습니다.',
                 icon: '/icon-192.png'
             });
+        }
+    }
+
+    updateUI(status) {
+        this.statusDisplay.textContent = status;
+        if (status === 'FASTING') {
+            this.startButton.style.display = 'none';
+            this.stopButton.style.display = 'block';
+        } else {
+            this.startButton.style.display = 'block';
+            this.stopButton.style.display = 'none';
+        }
+    }
+
+    updateTimerDisplay(timeLeft) {
+        if (!this.timerDisplay) return;
+        
+        const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+        
+        this.timerDisplay.textContent = 
+            `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        
+        // 남은 시간 업데이트
+        if (this.remainingTimeDiv) {
+            this.remainingTimeDiv.textContent = `${hours}시간 ${minutes}분 ${seconds}초 남음`;
+        }
+        
+        // GMT 시간 업데이트
+        if (this.gmtTimeDiv) {
+            const endTime = new Date(Date.now() + timeLeft);
+            this.gmtTimeDiv.textContent = `${endTime.toLocaleTimeString()}에 종료`;
         }
     }
 }

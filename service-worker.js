@@ -17,16 +17,18 @@ self.addEventListener('install', (event) => {
                 console.log('Opened cache');
                 return Promise.allSettled(
                     ASSETS_TO_CACHE.map(url => {
-                        // URL이 유효한 웹 URL인지 확인
-                        if (!url.startsWith('http') && !url.startsWith('/')) {
-                            console.warn(`Skipping invalid URL: ${url}`);
+                        // 외부 URL이나 chrome-extension URL 건너뛰기
+                        if (url.startsWith('chrome-extension:') || url.includes('://')) {
                             return Promise.resolve();
                         }
                         
-                        return fetch(new Request(url, { mode: 'no-cors' }))
+                        // 상대 경로를 절대 경로로 변환
+                        const fullUrl = new URL(url, self.location.origin).href;
+                        
+                        return fetch(fullUrl)
                             .then(response => {
-                                if (!response || response.status === 0) {
-                                    throw new Error(`Invalid response for ${url}`);
+                                if (!response.ok) {
+                                    throw new Error(`Failed to fetch ${url}`);
                                 }
                                 return cache.put(url, response);
                             })
@@ -66,7 +68,7 @@ self.addEventListener('fetch', (event) => {
                     return response;
                 }
 
-                // 캐시에 없다면 네��워크 요청
+                // 캐시에 없다면 네트워크 요청
                 return fetch(event.request).then(
                     response => {
                         // 유효한 응답이 아니라면 그대로 반환

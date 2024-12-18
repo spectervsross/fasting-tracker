@@ -14,8 +14,9 @@ self.onmessage = function(e) {
 
 function startTimer() {
     if (timer) clearInterval(timer);
+    
     timer = setInterval(() => {
-        const now = new Date().getTime();
+        const now = Date.now();
         const timeLeft = endTime - now;
         
         if (timeLeft <= 0) {
