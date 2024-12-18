@@ -3,12 +3,25 @@ let startTime = null;
 let endTime = null;
 
 self.onmessage = function(e) {
-    if (e.data.action === 'start') {
-        startTime = e.data.startTime;
-        endTime = e.data.endTime;
-        startTimer();
-    } else if (e.data.action === 'stop') {
-        stopTimer();
+    try {
+        if (!e.data || !e.data.action) {
+            console.warn('Invalid message received:', e.data);
+            return;
+        }
+
+        if (e.data.action === 'start') {
+            if (!e.data.startTime || !e.data.endTime) {
+                console.error('Missing required timing data');
+                return;
+            }
+            startTime = e.data.startTime;
+            endTime = e.data.endTime;
+            startTimer();
+        } else if (e.data.action === 'stop') {
+            stopTimer();
+        }
+    } catch (error) {
+        console.error('Error in worker:', error);
     }
 };
 

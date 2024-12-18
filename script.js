@@ -87,6 +87,10 @@ class SessionStorageManager {
 class FastingTracker {
     constructor() {
         this.logDebug('FastingTracker initialized', 'info');
+        
+        // DOM 요소 초기화를 최우선으로
+        this.initializeDOMElements();
+        
         this.startTime = null;
         this.updateInterval = null;
         this.notificationTimeout = null;
@@ -95,13 +99,62 @@ class FastingTracker {
         this.isPWA = window.navigator.standalone === true;
         this.initialized = false;
         
-        // DOM elements 초기화를 initializeApp으로 이동
-        this.initializeApp();
-        
-        // 세션 상태 체크 간격 설정 (5분마다)
-        this.SESSION_CHECK_INTERVAL = 5 * 60 * 1000; 
+        // 나머지 초기화
+        this.SESSION_CHECK_INTERVAL = 5 * 60 * 1000;
         this.timerWorker = null;
+        
+        // DOM 요소가 준비된 후에 나머지 초기화 진행
+        this.initializeApp();
         this.initializeTimerWorker();
+    }
+
+    initializeDOMElements() {
+        // DOM 요소들을 명확하게 초기화
+        this.timerDisplay = document.getElementById('timer');
+        this.statusDisplay = document.getElementById('status');
+        this.startButton = document.getElementById('startButton');
+        this.stopButton = document.getElementById('stopButton');
+        this.historyList = document.getElementById('historyList');
+        this.durationSelect = document.getElementById('fastingDuration');
+        this.remainingTimeDiv = document.getElementById('remainingTime');
+        this.gmtTimeDiv = document.getElementById('gmtTime');
+
+        // DOM 요소 존재 여부 확인
+        if (!this.timerDisplay || !this.statusDisplay || !this.startButton || !this.stopButton) {
+            throw new Error('Required DOM elements not found');
+        }
+    }
+
+    // startFasting 메서드 수정
+    async startFasting(isNewSession = true) {
+        try {
+            if (isNewSession) {
+                const startTime = Date.now();
+                const selectedDuration = parseInt(this.durationSelect.value);
+                const endTime = startTime + (selectedDuration * 60 * 60 * 1000);
+
+                // Worker 시작
+                this.timerWorker.postMessage({
+                    action: 'start',
+                    startTime: startTime,
+                    endTime: endTime
+                });
+
+                // IndexedDB에 저장
+                await this.sessionManager.setItem('currentFasting', {
+                    startTime,
+                    endTime,
+                    duration: selectedDuration,
+                    status: 'active'
+                });
+
+                // UI 업데이트
+                this.updateUI('FASTING');
+            }
+        } catch (error) {
+            console.error('Error starting fast:', error);
+            this.logDebug(`Failed to start fasting: ${error.message}`, 'error');
+        }
     }
 
     initializeTimerWorker() {
@@ -154,57 +207,6 @@ class FastingTracker {
         }
     }
 
-    initializeDOMElements() {
-        this.timerDisplay = document.getElementById('timer');
-        this.statusDisplay = document.getElementById('status');
-        this.startButton = document.getElementById('startButton');
-        this.stopButton = document.getElementById('stopButton');
-        this.historyList = document.getElementById('historyList');
-        this.durationSelect = document.getElementById('fastingDuration');
-        this.debugLog = document.getElementById('debug-log');
-        this.requestPermissionBtn = document.getElementById('request-permission');
-        this.checkStatusBtn = document.getElementById('check-status');
-        this.remainingTimeDiv = document.getElementById('remainingTime');
-        this.gmtTimeDiv = document.getElementById('gmtTime');
-
-        // DOM 요소 존재 여부 확인
-        if (!this.timerDisplay || !this.statusDisplay || !this.startButton || !this.stopButton) {
-            this.logDebug('Required DOM elements not found', 'error');
-            throw new Error('Required DOM elements not found');
-        }
-    }
-
-    // startFasting 메서드 수정
-    async startFasting(isNewSession = true) {
-        if (isNewSession) {
-            try {
-                const startTime = new Date().getTime();
-                const selectedDuration = parseInt(this.durationSelect.value);
-                const endTime = startTime + (selectedDuration * 60 * 60 * 1000);
-
-                // Worker 시작
-                this.timerWorker.postMessage({
-                    action: 'start',
-                    startTime: startTime,
-                    endTime: endTime
-                });
-
-                // IndexedDB에 저장
-                await this.sessionManager.setItem('currentFasting', {
-                    startTime,
-                    endTime,
-                    duration: selectedDuration,
-                    status: 'active'
-                });
-
-                // UI 업데이트
-                this.updateUI('FASTING');
-            } catch (error) {
-                console.error('Error starting fast:', error);
-            }
-        }
-    }
-
     checkNotificationSupport() {
         if (this.isMobileSafari) {
             if (!this.isPWA) {
@@ -233,7 +235,7 @@ class FastingTracker {
     async requestNotificationPermission() {
         this.logDebug('Requesting notification permission...', 'info');
 
-        // iOS Safari에서 PWA로 실행 중이 아닌 경우 알림 요청하지 ��음
+        // iOS Safari에서 PWA로 실행 중이 아닌 경우 알림 요청하지 않음
         if (this.isMobileSafari && !this.isPWA) {
             this.logDebug('Notifications not available in iOS Safari browser', 'warn');
             return false;
@@ -331,7 +333,7 @@ class FastingTracker {
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                message: `${duration}시간 단식이 완료되었습니다! (${endTimeStr})`
+                                message: `${duration}시간 ��식이 완료되었습니다! (${endTimeStr})`
                             })
                         });
                     } catch (error) {

@@ -16,26 +16,29 @@ self.addEventListener('install', (event) => {
             .then(cache => {
                 console.log('Opened cache');
                 return Promise.allSettled(
-                    ASSETS_TO_CACHE.map(url => {
-                        // 외부 URL이나 chrome-extension URL 건너뛰기
-                        if (url.startsWith('chrome-extension:') || url.includes('://')) {
-                            return Promise.resolve();
+                    ASSETS_TO_CACHE.map(async url => {
+                        try {
+                            // 절대 URL 생성
+                            const requestUrl = new URL(url, self.location.origin);
+                            
+                            // chrome-extension URL 체크
+                            if (requestUrl.protocol === 'chrome-extension:') {
+                                console.warn('Skipping chrome-extension URL:', url);
+                                return;
+                            }
+
+                            const request = new Request(requestUrl.href);
+                            const response = await fetch(request);
+                            
+                            if (!response.ok) {
+                                throw new Error(`Failed to fetch ${url}`);
+                            }
+                            
+                            await cache.put(request, response);
+                            console.log('Cached:', url);
+                        } catch (error) {
+                            console.warn(`Failed to cache ${url}:`, error);
                         }
-                        
-                        // 상대 경로를 절대 경로로 변환
-                        const fullUrl = new URL(url, self.location.origin).href;
-                        
-                        return fetch(fullUrl)
-                            .then(response => {
-                                if (!response.ok) {
-                                    throw new Error(`Failed to fetch ${url}`);
-                                }
-                                return cache.put(url, response);
-                            })
-                            .catch(err => {
-                                console.warn(`Skipping cache for ${url}:`, err);
-                                return Promise.resolve();
-                            });
                     })
                 );
             })
