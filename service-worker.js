@@ -3,6 +3,7 @@ const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
     '/script.js',
+    '/logger.js',
     '/styles.css',
     '/manifest.json',
     '/timer-worker.js',
