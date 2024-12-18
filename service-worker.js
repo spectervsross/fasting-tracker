@@ -15,13 +15,18 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then(cache => {
                 console.log('Opened cache');
-                // 각 리소스를 개별적으로 캐시하고 실패 시 건너뛰기
                 return Promise.allSettled(
                     ASSETS_TO_CACHE.map(url => {
-                        return fetch(url)
+                        // URL이 유효한 웹 URL인지 확인
+                        if (!url.startsWith('http') && !url.startsWith('/')) {
+                            console.warn(`Skipping invalid URL: ${url}`);
+                            return Promise.resolve();
+                        }
+                        
+                        return fetch(new Request(url, { mode: 'no-cors' }))
                             .then(response => {
-                                if (!response.ok) {
-                                    throw new Error(`Failed to fetch ${url}`);
+                                if (!response || response.status === 0) {
+                                    throw new Error(`Invalid response for ${url}`);
                                 }
                                 return cache.put(url, response);
                             })
@@ -61,7 +66,7 @@ self.addEventListener('fetch', (event) => {
                     return response;
                 }
 
-                // 캐시에 없다면 네트워크 요청
+                // 캐시에 없다면 네��워크 요청
                 return fetch(event.request).then(
                     response => {
                         // 유효한 응답이 아니라면 그대로 반환
