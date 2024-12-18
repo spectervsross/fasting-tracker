@@ -11,9 +11,7 @@
     <link rel="apple-touch-icon" href="/icon-192.png">
     
     <!-- iOS splash screen images -->
-    <link rel="apple-touch-startup-image" href="/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
-    <link rel="apple-touch-startup-image" href="/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
-    <link rel="apple-touch-startup-image" href="/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)">
+    <link rel="apple-touch-startup-image" href="/splash.png">
     
     <!-- Add to home screen prompt -->
     <meta name="apple-mobile-web-app-title" content="Fasting Tracker">
@@ -195,6 +193,24 @@
             // Clear logs
             clearLogsBtn.addEventListener('click', clearLogs);
         });
+
+        // iOS PWA 상태 확인 함수 추가
+        function checkIOSPWAStatus() {
+            const isStandalone = window.navigator.standalone === true;
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
+            if (isIOS && !isStandalone) {
+                console.log('Running in iOS browser - some features may be limited');
+                // iOS 브라우저에서 실행 중일 때 사용자에게 알림
+                displayLog('For best experience, please add this app to your home screen', 'warn');
+            } else if (isIOS && isStandalone) {
+                console.log('Running as iOS PWA');
+                displayLog('Running as PWA on iOS', 'info');
+            }
+        }
+        
+        // 페이지 로드 시 상태 확인
+        window.addEventListener('load', checkIOSPWAStatus);
     </script>
     <link rel="stylesheet" href="styles.css">
 </head>

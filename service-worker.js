@@ -4,7 +4,9 @@ const ASSETS_TO_CACHE = [
     '/index.html',
     '/script.js',
     '/styles.css',
-    '/manifest.json'
+    '/manifest.json',
+    '/timer-worker.js',
+    '/icon-192.png'
 ];
 
 // 설치 단계 - 리소스 캐시
@@ -13,18 +15,22 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then(cache => {
                 console.log('Opened cache');
-                // 각 리소스를 개별적으로 캐시하여 실패한 항목 확인
-                return Promise.all(
+                // 각 리소스를 개별적으로 캐시하고 실패 시 건너뛰기
+                return Promise.allSettled(
                     ASSETS_TO_CACHE.map(url => {
-                        return cache.add(url).catch(err => {
-                            console.error('Cache add failed for:', url, err);
-                            return Promise.resolve(); // 개별 실패를 허용하고 계속 진행
-                        });
+                        return fetch(url)
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`Failed to fetch ${url}`);
+                                }
+                                return cache.put(url, response);
+                            })
+                            .catch(err => {
+                                console.warn(`Skipping cache for ${url}:`, err);
+                                return Promise.resolve();
+                            });
                     })
                 );
-            })
-            .catch(error => {
-                console.error('Service Worker 설치 중 오류 발생:', error);
             })
     );
 });
