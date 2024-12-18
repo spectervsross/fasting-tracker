@@ -25,6 +25,7 @@ self.onmessage = function(e) {
     }
 };
 
+
 function startTimer() {
     if (timer) clearInterval(timer);
     
