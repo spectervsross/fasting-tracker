@@ -86,6 +86,7 @@ class SessionStorageManager {
 
 class FastingTracker {
     constructor() {
+        this.logger = new AppLogger();
         this.logDebug('FastingTracker initialized', 'info');
         
         // DOM 요소 초기화를 최우선으로
@@ -106,6 +107,34 @@ class FastingTracker {
         // DOM 요소가 준비된 후에 나머지 초기화 진행
         this.initializeApp();
         this.initializeTimerWorker();
+        
+        // 주요 이벤트에 대한 로깅 설정
+        this.setupEventLogging();
+    }
+
+    setupEventLogging() {
+        // 백그라운드 전환 감지
+        document.addEventListener('visibilitychange', () => {
+            this.logger.log(
+                `Visibility changed to: ${document.visibilityState}`,
+                'info',
+                'visibility'
+            );
+        });
+
+        // 앱 시작/종료 감지
+        window.addEventListener('load', () => {
+            this.logger.log('App loaded', 'info', 'lifecycle');
+        });
+
+        window.addEventListener('beforeunload', () => {
+            this.logger.log('App closing', 'info', 'lifecycle');
+        });
+
+        // PWA 설치 상태 변경 감지
+        window.addEventListener('appinstalled', () => {
+            this.logger.log('App installed as PWA', 'info', 'pwa');
+        });
     }
 
     initializeDOMElements() {
@@ -129,6 +158,7 @@ class FastingTracker {
     async startFasting(isNewSession = true) {
         try {
             if (isNewSession) {
+                this.logger.log('Starting new fasting session', 'info', 'session');
                 const startTime = Date.now();
                 const selectedDuration = parseInt(this.durationSelect.value);
                 const endTime = startTime + (selectedDuration * 60 * 60 * 1000);
@@ -152,8 +182,8 @@ class FastingTracker {
                 this.updateUI('FASTING');
             }
         } catch (error) {
+            this.logger.log(`Failed to start fasting: ${error.message}`, 'error', 'session');
             console.error('Error starting fast:', error);
-            this.logDebug(`Failed to start fasting: ${error.message}`, 'error');
         }
     }
 
@@ -333,7 +363,7 @@ class FastingTracker {
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                message: `${duration}시간 ��식이 완료되었습니다! (${endTimeStr})`
+                                message: `${duration}시간 단식이 완료되었습니다! (${endTimeStr})`
                             })
                         });
                     } catch (error) {
@@ -427,6 +457,11 @@ class FastingTracker {
 
     async stopFasting(isAutoStop = false) {
         try {
+            this.logger.log(
+                `Stopping fasting session (Auto: ${isAutoStop})`,
+                'info',
+                'session'
+            );
             const currentSession = await this.sessionManager.getItem('currentFasting');
             if (currentSession) {
                 const endTime = isAutoStop ? new Date(currentSession.endTime) : new Date();
@@ -456,6 +491,7 @@ class FastingTracker {
                 this.updateHistoryDisplay();
             }
         } catch (error) {
+            this.logger.log(`Failed to stop fasting: ${error.message}`, 'error', 'session');
             console.error('Error stopping fast:', error);
         }
     }
@@ -723,7 +759,12 @@ class FastingTracker {
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-    new FastingTracker();
+    const tracker = new FastingTracker();
+    
+    // 로그 내보내기 버튼 이벤트 리스너
+    document.getElementById('exportLogsBtn').addEventListener('click', () => {
+        tracker.logger.exportLogs();
+    });
 });
 
 function displayLog(message) {
