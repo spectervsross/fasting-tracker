@@ -68,24 +68,88 @@ class AppLogger {
     }
 
     exportLogs() {
-        const logText = this.logs.map(log => 
-            `[${log.timestamp}] [${log.type}] [${log.category}] ${log.message}\n` +
-            `UserAgent: ${log.userAgent}\n` +
-            `Standalone: ${log.isStandalone}\n` +
-            `VisibilityState: ${log.visibilityState}\n` +
-            `SessionStatus: ${log.sessionStatus}\n` +
-            '-------------------'
-        ).join('\n');
+        try {
+            const logText = this.logs.map(log => 
+                `[${log.timestamp}] [${log.type}] [${log.category}] ${log.message}\n` +
+                `UserAgent: ${log.userAgent}\n` +
+                `Standalone: ${log.isStandalone}\n` +
+                `VisibilityState: ${log.visibilityState}\n` +
+                `SessionStatus: ${log.sessionStatus}\n` +
+                '-------------------'
+            ).join('\n');
 
-        const blob = new Blob([logText], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `fasting-tracker-logs-${new Date().toISOString()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+            // iOS Safari를 위한 대체 방법
+            if (this.isIOSSafari()) {
+                // 새 창에 로그 표시
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                    newWindow.document.write(`
+                        <html>
+                            <head>
+                                <title>Fasting Tracker Logs</title>
+                                <meta name="viewport" content="width=device-width, initial-scale=1">
+                                <style>
+                                    body { 
+                                        font-family: monospace; 
+                                        white-space: pre-wrap; 
+                                        padding: 20px;
+                                        background: #f5f5f5;
+                                    }
+                                    .copy-btn {
+                                        position: fixed;
+                                        top: 20px;
+                                        right: 20px;
+                                        padding: 10px;
+                                        background: #4CAF50;
+                                        color: white;
+                                        border: none;
+                                        border-radius: 5px;
+                                        cursor: pointer;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <button class="copy-btn" onclick="copyLogs()">Copy Logs</button>
+                                <pre>${logText}</pre>
+                                <script>
+                                    function copyLogs() {
+                                        const logContent = document.querySelector('pre').textContent;
+                                        navigator.clipboard.writeText(logContent)
+                                            .then(() => alert('Logs copied to clipboard!'))
+                                            .catch(err => alert('Failed to copy: ' + err));
+                                    }
+                                </script>
+                            </body>
+                        </html>
+                    `);
+                    newWindow.document.close();
+                } else {
+                    alert('Please allow pop-ups to view logs');
+                }
+                return;
+            }
+
+            // 다른 브라우저를 위한 기존 다운로드 방식
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fasting-tracker-logs-${new Date().toISOString()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to export logs:', error);
+            alert('Failed to export logs. Please try again.');
+        }
+    }
+
+    isIOSSafari() {
+        const ua = navigator.userAgent;
+        const isIOS = /iPad|iPhone|iPod/.test(ua);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+        return isIOS && isSafari;
     }
 
     clearLogs() {

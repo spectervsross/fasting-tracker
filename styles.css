@@ -205,3 +205,18 @@ h2 {
     white-space: pre-wrap;  /* Preserve line breaks */
     word-wrap: break-word;  /* Prevent overflow */
 }
+
+/* iOS Safari specific styles */
+.ios-text {
+    display: none;
+}
+
+/* iOS Safari에서만 보이는 텍스트 */
+@supports (-webkit-touch-callout: none) {
+    .desktop-text {
+        display: none;
+    }
+    .ios-text {
+        display: inline;
+    }
+}
